@@ -1,0 +1,11 @@
+pymupdf==1.24.11
+reportlab==4.2.5
+rapidfuzz==3.10.1
+pydantic==2.9.2
+pandas==2.2.3
+pillow==10.4.0
+pytest==8.3.3
+
+# Optional: only needed if you activate the real VLM extractor with a live API key.
+# The pipeline runs end-to-end without this installed (MockVLMExtractor is the default).
+anthropic==0.39.0

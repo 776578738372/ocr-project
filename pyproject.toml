@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "w9-onboarding"
+version = "0.1.0"
+description = "W-9 extraction and supplier onboarding decision service (prototype)"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
