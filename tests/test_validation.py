@@ -75,6 +75,32 @@ def test_wrong_form_detected_when_layout_ocr_finds_nothing():
     assert "ERR_POSSIBLE_WRONG_FORM" in codes
 
 
+def test_corporation_with_ssn_instead_of_ein_is_flagged():
+    # Per the case study's own reference material and the real W-9
+    # instructions: a corporation cannot have a personal SSN as its TIN.
+    fields = make_fields(
+        tax_classification=TaxClassification(value="c_corporation", confidence=0.97, source=SOURCE),
+        tin=TinInfo(type="SSN", value_masked="xxx-xx-1234", value_token="tin_tok_xyz", format_valid=True, confidence=0.97, source=SOURCE),
+    )
+    codes = [f.code for f in validate(fields)]
+    assert "WARN_TIN_TYPE_INCONSISTENT_WITH_CLASSIFICATION" in codes
+
+
+def test_sole_proprietor_with_ssn_is_not_flagged():
+    # Individual/sole proprietor is explicitly allowed to use either SSN or EIN.
+    fields = make_fields(
+        tax_classification=TaxClassification(value="individual_sole_proprietor", confidence=0.97, source=SOURCE),
+        tin=TinInfo(type="SSN", value_masked="xxx-xx-1234", value_token="tin_tok_xyz", format_valid=True, confidence=0.97, source=SOURCE),
+    )
+    codes = [f.code for f in validate(fields)]
+    assert "WARN_TIN_TYPE_INCONSISTENT_WITH_CLASSIFICATION" not in codes
+
+
+def test_corporation_with_ein_is_not_flagged():
+    codes = [f.code for f in validate(make_fields())]  # default fixture: c_corporation + EIN
+    assert "WARN_TIN_TYPE_INCONSISTENT_WITH_CLASSIFICATION" not in codes
+
+
 def test_llc_without_subclass_warns():
     fields = make_fields(
         tax_classification=TaxClassification(value="llc", confidence=0.97, source=SOURCE, llc_subclass=None)

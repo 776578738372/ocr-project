@@ -34,6 +34,16 @@ _VALID_STATES = {
 
 LOW_CONFIDENCE_THRESHOLD = 0.5
 
+# Per the case study's own reference material ("TIN: either a Social Security
+# Number for individuals or an Employer Identification Number for entities")
+# and the real W-9 instructions: a corporation, partnership, or trust cannot
+# have a personal SSN as its taxpayer ID -- it must be an EIN. Individual/
+# sole-proprietor and LLC are deliberately excluded: the real form's own
+# instructions explicitly allow either SSN or EIN for those (a sole
+# proprietor with an EIN may use either; a disregarded-entity LLC uses the
+# owner's SSN or EIN), so flagging them would be a false positive.
+_ENTITY_ONLY_CLASSIFICATIONS = {"c_corporation", "s_corporation", "partnership", "trust_estate"}
+
 BLOCKING_CODES = {
     "ERR_MISSING_LEGAL_NAME",
     "ERR_INVALID_TIN",
@@ -100,6 +110,15 @@ def validate(fields: ExtractedFields) -> list[ValidationFlag]:
             "WARN_LLC_SUBCLASS_MISSING", Severity.WARNING,
             "LLC was selected but no C/S/P sub-classification was found.",
             "tax_classification.llc_subclass",
+        ))
+
+    if tc.value in _ENTITY_ONLY_CLASSIFICATIONS and fields.tin.type == "SSN":
+        flags.append(_flag(
+            "WARN_TIN_TYPE_INCONSISTENT_WITH_CLASSIFICATION", Severity.WARNING,
+            f"Tax classification '{tc.value}' should use an EIN, not an SSN -- a corporation, "
+            "partnership, or trust cannot have a personal SSN as its taxpayer ID. Possible "
+            "extraction error or an incorrectly completed form.",
+            "tin.type",
         ))
 
     state = fields.address.state.value
