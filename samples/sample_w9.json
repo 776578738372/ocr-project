@@ -1,0 +1,135 @@
+{
+  "api_version": "2026-09-01",
+  "request_id": "req_45512344678f",
+  "tenant_id": "tenant_pairsoft_042",
+  "received_at": "2026-09-21T07:54:19.093411Z",
+  "processing_time_ms": 6,
+  "processing_metadata": {
+    "extraction_path": "layout_ocr",
+    "routing_signal": "pdf_embedded_text",
+    "engine_versions": {
+      "classifier": "w9-classifier-1.0",
+      "matching_rules": "kys-rules-1.0",
+      "extractor": "layout-ocr-1.0"
+    },
+    "estimated_cost_usd": 0.0015,
+    "state_trace": [
+      "UNINIT",
+      "INGESTED",
+      "OCR_EXTRACTION",
+      "NORMALIZED",
+      "KYS_CHECKED",
+      "TIN_SEARCHED",
+      "EVAL_CHANGE",
+      "MATCHED_EXIST",
+      "TERMINATED"
+    ]
+  },
+  "extracted_fields": {
+    "legal_name": {
+      "value": "Acme Corporation",
+      "confidence": 0.97,
+      "source": "layout_ocr",
+      "evidence": "1 Name (as shown on your income tax return): Acme Corporation"
+    },
+    "dba_name": {
+      "value": null,
+      "confidence": 0.97,
+      "source": "layout_ocr",
+      "evidence": "2 Business name/disregarded entity name, if different from above: "
+    },
+    "tax_classification": {
+      "value": "c_corporation",
+      "confidence": 0.97,
+      "source": "layout_ocr",
+      "evidence": "[X] C Corporation",
+      "llc_subclass": null,
+      "foreign_partner_indicator": false,
+      "other_description": null
+    },
+    "address": {
+      "street": {
+        "value": "1200 Industrial Pkwy",
+        "confidence": 0.97,
+        "source": "layout_ocr",
+        "evidence": "5 Address (number, street, and apt. or suite no.): 1200 Industrial Pkwy"
+      },
+      "city": {
+        "value": "Columbus",
+        "confidence": 0.97,
+        "source": "layout_ocr",
+        "evidence": "6 City, state, and ZIP code: Columbus, OH 43215"
+      },
+      "state": {
+        "value": "OH",
+        "confidence": 0.97,
+        "source": "layout_ocr",
+        "evidence": "6 City, state, and ZIP code: Columbus, OH 43215"
+      },
+      "zip": {
+        "value": "43215",
+        "confidence": 0.97,
+        "source": "layout_ocr",
+        "evidence": "6 City, state, and ZIP code: Columbus, OH 43215"
+      }
+    },
+    "tin": {
+      "type": "EIN",
+      "value_masked": "xx-xxx1093",
+      "value_token": "tin_tok_631ed2dc2257",
+      "format_valid": true,
+      "confidence": 0.97,
+      "source": "layout_ocr"
+    },
+    "certification": {
+      "signed": true,
+      "signature_present": true,
+      "date": "09/15/2026",
+      "confidence": 0.97
+    }
+  },
+  "match_evidence": {
+    "candidates_evaluated": 1,
+    "tin_match": true,
+    "matched_supplier_id": "sup_00417",
+    "name_similarity_score": 1.0,
+    "fuzzy_algorithm": "token_sort_ratio",
+    "field_diffs": [
+      {
+        "field": "address.street",
+        "existing": "1150 Industrial Pkwy",
+        "incoming": "1200 Industrial Pkwy"
+      }
+    ],
+    "banking_change_detected": false
+  },
+  "decision": {
+    "action": "UPDATE_EXISTING",
+    "matched_supplier_id": "sup_00417",
+    "overall_match_confidence": 1.0,
+    "decision_reasoning": [
+      {
+        "code": "RULE_TIN_EXACT_MATCH",
+        "message": "Extracted TIN matches supplier sup_00417 on file."
+      },
+      {
+        "code": "RULE_NAME_SIMILARITY_HIGH",
+        "message": "Name similarity 1.00 >= 0.7 threshold."
+      }
+    ]
+  },
+  "validation_flags": [
+    {
+      "code": "INFO_TIN_MATCHING_NOT_PERFORMED",
+      "severity": "INFO",
+      "field": null,
+      "message": "IRS TIN Matching was not performed (mock_tin_matching_v0 (no live IRS integration configured)); name/TIN combination is unverified against IRS records."
+    },
+    {
+      "code": "INFO_OFAC_SCREENING_NOT_PERFORMED",
+      "severity": "INFO",
+      "field": null,
+      "message": "OFAC/sanctions screening was not performed (mock_ofac_screening_v0 (no live sanctions-list integration configured))."
+    }
+  ]
+}

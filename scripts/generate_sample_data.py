@@ -1,27 +1,31 @@
-"""Generates the supplier master CSV and every sample W-9 document used by the
-CLI demo and the eval harness.
+"""STATUS: REAL. Generates the supplier master CSV and every sample W-9
+document used by the CLI/API demo and the eval harness (tests/test_decision.py).
 
 Run once from the repo root: `python scripts/generate_sample_data.py`
-Everything it writes goes under data/, and eval/manifest.json (ground truth
-for the eval harness) is hand-written separately to match what this script
-produces -- see eval/README or the design doc for the scenario table.
+Writes data/supplier_master.csv and samples/*; data/evaluation_cases.json
+(ground truth for tests/test_decision.py) is hand-written separately to
+match what this script produces -- see docs/design_doc.md for the scenario
+table.
 """
 
 from __future__ import annotations
 
 import csv
-import io
+import json
 import os
+import sys
 
 import pymupdf as fitz
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
-from w9_onboarding.security import hash_identifier, tokenize_tin
-
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
+
+from utils.security import hash_identifier, tokenize_tin  # noqa: E402
+
 DATA_DIR = os.path.join(REPO_ROOT, "data")
-SAMPLES_DIR = os.path.join(DATA_DIR, "sample_w9s")
+SAMPLES_DIR = os.path.join(REPO_ROOT, "samples")
 
 _CLASSIFICATION_LABELS = [
     ("individual_sole_proprietor", "Individual/sole proprietor"),
@@ -197,7 +201,7 @@ def write_supplier_master(path: str) -> None:
 def main() -> None:
     os.makedirs(SAMPLES_DIR, exist_ok=True)
 
-    write_supplier_master(os.path.join(DATA_DIR, "sample_supplier_master.csv"))
+    write_supplier_master(os.path.join(DATA_DIR, "supplier_master.csv"))
 
     # 1. Clean match, minor address diff -> MATCHED_EXIST / UPDATE_EXISTING
     render_w9_pdf(
@@ -249,7 +253,19 @@ def main() -> None:
         os.path.join(SAMPLES_DIR, "scanned_wrapper_w9.pdf"),
     )
 
-    print(f"Wrote supplier master + {len(os.listdir(SAMPLES_DIR))} sample documents to {DATA_DIR}")
+    # 9. Secondary payload with banking details that don't match Acme's on-file
+    # routing/account (021000021 / 4821) -> exercises the fraud-override path.
+    with open(os.path.join(SAMPLES_DIR, "secondary_payload_banking_change.json"), "w") as f:
+        json.dump({
+            "banking": {
+                "routing_number": "071000013",
+                "account_number_last4": "9999",
+                "account_holder_name": "Acme Corporation",
+            }
+        }, f, indent=2)
+        f.write("\n")
+
+    print(f"Wrote {DATA_DIR}/supplier_master.csv + {len(os.listdir(SAMPLES_DIR))} sample documents to {SAMPLES_DIR}")
 
 
 if __name__ == "__main__":

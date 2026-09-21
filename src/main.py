@@ -1,0 +1,98 @@
+"""STATUS: REAL (thin adapter). Optional HTTP interface.
+
+The primary, required entry point for this exercise is the CLI (cli.py) --
+the brief lists a production REST server under "what we are not asking you
+to build" and says a CLI is sufficient. This module is deliberately minimal
+(no auth, no persistence, no containers/deployment config) and exists to
+show the same contract works over a plain upload endpoint: it is a thin
+adapter with zero duplicated logic -- every request calls the exact same
+`pipeline.run_pipeline` function the CLI calls, against the same CSV-based
+supplier master the brief specifies for this exercise.
+
+Prototype simplification: this demo has one supplier master file
+(data/supplier_master.csv), so `tenant_id` is accepted and passed through
+into the response/audit trail (it's part of the real contract and the
+tenant-isolation story -- see design_doc.md §7) but doesn't select between
+multiple files the way a real multi-tenant supplier-master service would.
+Swapping in per-tenant resolution (or a real supplier-master query API) is a
+change to `_get_supplier_master` alone -- nothing else in this file, or in
+`decision/pipeline.py`, needs to know the difference.
+
+Run from the repo root (--app-dir puts src/ on the import path without
+needing to cd into it, which matters since decision/schemas/matching/etc.
+are flat top-level packages under src/, not nested under a "src" package):
+
+    pip install fastapi uvicorn python-multipart
+    uvicorn main:app --app-dir src --reload --port 8000
+
+Try it:
+    curl -X POST http://localhost:8000/v1/w9/onboard \
+      -F "tenant_id=tenant_pairsoft_042" \
+      -F "file=@samples/clean_w9_acme.pdf"
+"""
+
+from __future__ import annotations
+
+import json
+import os
+
+import pandas as pd
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+
+from decision.pipeline import run_pipeline
+from matching.supplier_master import load_supplier_master
+from schemas.schema import SecondaryPayload, W9OnboardingResponse
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SUPPLIER_MASTER_PATH = os.environ.get(
+    "W9_SUPPLIER_MASTER_PATH", os.path.join(_REPO_ROOT, "data", "supplier_master.csv")
+)
+
+app = FastAPI(
+    title="W-9 Onboarding Service",
+    description="Optional HTTP interface over the same pipeline the CLI uses.",
+    version="0.1.0",
+)
+
+_supplier_master_cache: pd.DataFrame | None = None
+
+
+def _get_supplier_master() -> pd.DataFrame:
+    global _supplier_master_cache
+    if _supplier_master_cache is None:
+        if not os.path.exists(SUPPLIER_MASTER_PATH):
+            raise HTTPException(status_code=500, detail=f"Supplier master not found at '{SUPPLIER_MASTER_PATH}'")
+        _supplier_master_cache = load_supplier_master(SUPPLIER_MASTER_PATH)
+    return _supplier_master_cache
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.post("/v1/w9/onboard", response_model=W9OnboardingResponse)
+async def onboard_w9(
+    tenant_id: str = Form(...),
+    file: UploadFile = File(...),
+    secondary_payload: str | None = Form(None),
+) -> W9OnboardingResponse:
+    file_bytes = await file.read()
+
+    payload = None
+    if secondary_payload:
+        try:
+            payload = SecondaryPayload.model_validate(json.loads(secondary_payload))
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid secondary_payload: {exc}") from exc
+
+    # Note: an invalid/corrupted document is NOT an HTTP error -- it's a
+    # normal, documented contract outcome (decision.action == "REJECTED").
+    # HTTP error codes here are reserved for things outside the contract
+    # (a malformed request -> 400/422, or a missing supplier master -> 500).
+    return run_pipeline(
+        file_bytes=file_bytes,
+        tenant_id=tenant_id,
+        supplier_df=_get_supplier_master(),
+        secondary_payload=payload,
+    )

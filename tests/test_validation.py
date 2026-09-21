@@ -1,4 +1,4 @@
-from w9_onboarding.contracts.schema import (
+from schemas.schema import (
     Address,
     Certification,
     ExtractedFields,
@@ -7,7 +7,7 @@ from w9_onboarding.contracts.schema import (
     TaxClassification,
     TinInfo,
 )
-from w9_onboarding.validation.rules import has_blocking_flag, validate
+from validation.rules import has_blocking_flag, validate
 
 SOURCE = ExtractionPath.LAYOUT_OCR
 

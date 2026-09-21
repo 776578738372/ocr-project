@@ -1,0 +1,119 @@
+[
+  {
+    "name": "clean_match_with_address_diff",
+    "description": "TIN + name match an existing supplier exactly; street address differs -> clean update with a field diff.",
+    "file": "samples/clean_w9_acme.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "UPDATE_EXISTING",
+      "matched_supplier_id": "sup_00417",
+      "extracted_fields": {
+        "legal_name": "Acme Corporation",
+        "tin.type": "EIN",
+        "address.zip": "43215",
+        "tax_classification.value": "c_corporation",
+        "certification.signed": true
+      }
+    }
+  },
+  {
+    "name": "no_match_new_supplier",
+    "description": "TIN and name appear nowhere in the supplier master -> new supplier.",
+    "file": "samples/clean_w9_newco.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "CREATE_NEW",
+      "matched_supplier_id": null,
+      "extracted_fields": {
+        "legal_name": "Bright Path Logistics LLC",
+        "tax_classification.value": "llc",
+        "tax_classification.llc_subclass": "P",
+        "address.state": "NV"
+      }
+    }
+  },
+  {
+    "name": "tin_hijack_name_mismatch",
+    "description": "Extracted TIN matches Acme's on-file TIN, but the legal name is completely different -> possible TIN hijack, escalate.",
+    "file": "samples/clean_w9_tin_hijack.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "extracted_fields": {
+        "legal_name": "Shell Ventures Group",
+        "tin.value_masked": "xx-xxx1093"
+      }
+    }
+  },
+  {
+    "name": "unsigned_form_blocks_auto_decision",
+    "description": "Clean, unmatched supplier, but the form is unsigned -> CRITICAL validation flag forces human review even though the matcher alone would say CREATE_NEW.",
+    "file": "samples/clean_w9_unsigned.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "validation_flag_codes_include": ["ERR_NOT_SIGNED"],
+      "extracted_fields": {
+        "legal_name": "Vertex Analytics Inc"
+      }
+    }
+  },
+  {
+    "name": "wrong_form_w8_sent_by_mistake",
+    "description": "A W-8, not a W-9 -- no field anchors match at all despite a real embedded text layer.",
+    "file": "samples/wrong_form_w8.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "validation_flag_codes_include": ["ERR_POSSIBLE_WRONG_FORM", "ERR_MISSING_LEGAL_NAME", "ERR_INVALID_TIN"]
+    }
+  },
+  {
+    "name": "invalid_file_rejected",
+    "description": "Not a PDF/PNG/JPEG at all -> rejected before any extraction runs.",
+    "file": "samples/invalid_document.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "REJECTED",
+      "matched_supplier_id": null,
+      "validation_flag_codes_include": ["ERR_INVALID_FILE_FORMAT"]
+    }
+  },
+  {
+    "name": "scanned_photo_routes_to_vlm_mock",
+    "description": "JPEG photo -> classifier routes to VLM path; with no API key configured, MockVLMExtractor honestly reports every field unknown, which correctly forces human review rather than guessing.",
+    "file": "samples/scanned_w9_acme.jpg",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "extraction_path": "vlm_extraction",
+      "validation_flag_codes_include": ["ERR_MISSING_LEGAL_NAME", "ERR_INVALID_TIN"]
+    }
+  },
+  {
+    "name": "scanned_pdf_wrapper_routes_to_vlm",
+    "description": "PDF with a full-page image and zero embedded text -> classifier's stage-2 probe catches the scanned wrapper and routes to VLM, same as a direct photo.",
+    "file": "samples/scanned_wrapper_w9.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "extraction_path": "vlm_extraction"
+    }
+  },
+  {
+    "name": "banking_change_overrides_clean_match",
+    "description": "TIN + name match Acme cleanly, but the secondary payload's bank routing/account differs from what's on file -> forced to human review regardless of the otherwise-clean match.",
+    "file": "samples/clean_w9_acme.pdf",
+    "secondary_payload": "samples/secondary_payload_banking_change.json",
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "decision_reasoning_codes_include": ["WARN_HIGH_RISK_BANKING_CHANGE"]
+    }
+  }
+]

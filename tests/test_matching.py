@@ -1,6 +1,6 @@
 import pandas as pd
 
-from w9_onboarding.contracts.schema import (
+from schemas.schema import (
     Address,
     BankingInfo,
     Certification,
@@ -12,9 +12,9 @@ from w9_onboarding.contracts.schema import (
     TaxClassification,
     TinInfo,
 )
-from w9_onboarding.matching.blocking import normalize_business_name
-from w9_onboarding.matching.scoring import match_supplier
-from w9_onboarding.security import hash_identifier, tokenize_tin
+from matching.blocking import normalize_business_name
+from matching.scoring import match_supplier
+from utils.security import hash_identifier, tokenize_tin
 
 SOURCE = ExtractionPath.LAYOUT_OCR
 

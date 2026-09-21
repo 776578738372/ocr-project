@@ -1,6 +1,6 @@
 # W-9 Extraction and Supplier Onboarding — Design Document
 
-**Role:** AI Engineer / AI Architect, Central AI Services · **Scope:** US W-9 only, extensible design for other country legal processes · **Companion code:** this repository (`src/w9_onboarding/`), see `README.md` for what's real vs. mocked.
+**Role:** AI Engineer / AI Architect, Central AI Services · **Scope:** US W-9 only, extensible design for other country legal processes · **Companion code:** this repository (`src/`), see `README.md` for the full project structure and what's real vs. mocked.
 
 ## 0. Assumptions
 
@@ -76,7 +76,7 @@ This routing is cheap (milliseconds, no external API call) and deterministic, so
 
 ### 3.2 `[2A]` Layout OCR: real extraction, not a stub
 
-For documents routed here, PyMuPDF extracts the actual embedded text stream, and a set of regexes anchored on the W-9's own field labels ("1 Name (as shown on your income tax return):", "Part I Taxpayer Identification Number (TIN):", etc.) locates each field. This is genuinely working extraction — verified against 9 generated sample documents with 100% field-level accuracy (`eval/run_eval.py`) — not a placeholder.
+For documents routed here, PyMuPDF extracts the actual embedded text stream, and a set of regexes anchored on the W-9's own field labels ("1 Name (as shown on your income tax return):", "Part I Taxpayer Identification Number (TIN):", etc.) locates each field. This is genuinely working extraction — verified against 9 generated sample documents with 100% field-level accuracy (`tests/test_decision.py`) — not a placeholder.
 
 **Confidence here is derived, not self-reported.** Because this is a native text layer rather than a raster scan, there's no OCR-token confidence to report. Confidence instead reflects structural certainty: did the label anchor match, and does the captured value pass its own format check (TIN shape, valid state code, checkbox exclusivity). A field that wasn't found gets `0.0`, not a guessed mid-range number — see §5 on why "I don't know" is a first-class signal, not an afterthought.
 
@@ -144,7 +144,7 @@ Full schema: `contracts/schema.py`. Two decisions worth stating explicitly, beca
 }
 ```
 
-(Full example with all fields populated: run `python -m w9_onboarding.cli` against any sample — see README.)
+(Full example with all fields populated: `samples/sample_w9.json`, or run `python src/cli.py` against any sample — see README.)
 
 `decision_reasoning` and `validation_flags` use stable, structured `{code, message}` pairs rather than free text specifically so a downstream UI or workflow engine can key off `code` (localize it, route on it, trigger automation) without string-matching English sentences — the message is for a human reviewer, the code is for a machine.
 
@@ -167,7 +167,7 @@ Full schema: `contracts/schema.py`. Two decisions worth stating explicitly, beca
 
 At the stated volume (20K–100K docs/month) and assuming roughly 70–80% of traffic is a clean digital PDF (the common case for supplier-submitted forms) hitting the cheap path: **blended cost is on the order of $100–$800/month** across the whole portfolio at 100K docs/month — trivial against AP labor cost, and the reason extraction-technology choice should be driven by accuracy and maintainability, not this line item.
 
-**Failure handling.** A transient extraction-API failure (VLM provider timeout/5xx) should retry with backoff, then fail closed to `ESCALATED_HUMAN` with an `ERR_EXTRACTION_FAILED` flag rather than dropping the document — silence is explicitly the wrong failure mode per the brief's own contract requirements (§5, REJECTED path). A malformed/corrupted file fails fast at `[1] INGESTED`, before any paid extraction call, with a structured `REJECTED` response (see `invalid_document.pdf` scenario in `eval/manifest.json`).
+**Failure handling.** A transient extraction-API failure (VLM provider timeout/5xx) should retry with backoff, then fail closed to `ESCALATED_HUMAN` with an `ERR_EXTRACTION_FAILED` flag rather than dropping the document — silence is explicitly the wrong failure mode per the brief's own contract requirements (§5, REJECTED path). A malformed/corrupted file fails fast at `[1] INGESTED`, before any paid extraction call, with a structured `REJECTED` response (see `invalid_document.pdf` scenario in `data/evaluation_cases.json`).
 
 ## 7. Security posture
 
