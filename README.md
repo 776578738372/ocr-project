@@ -135,6 +135,14 @@ outside the contract (malformed request → 400/422). Verified end-to-end: clean
 TIN hijack, unsigned form, banking-change override, invalid file, and the scanned/VLM-mock path all
 produce results identical to the CLI.
 
+**A tiny demo UI** (`src/static/index.html`) is served at `GET /` on the same app — upload a file,
+see the decision, extracted fields, reasoning, and validation flags rendered nicely, with the raw
+JSON available too. Same-origin fetch to `/v1/w9/onboard`, so no CORS/HTTPS setup needed; just open
+`http://localhost:8000/` once `uvicorn` is running. Not part of the case study deliverable (no UI
+was asked for) — purely a convenience for demoing the API without curl/Postman. Verified end-to-end
+in a real browser (Playwright) across all three decision-outcome colors (create/update, review,
+reject).
+
 ## What's real vs. mock — the honest breakdown
 
 | Layer | Status | Detail |

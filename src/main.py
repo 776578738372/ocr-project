@@ -41,6 +41,7 @@ import os
 
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse
 
 from decision.pipeline import run_pipeline
 from matching.supplier_master import load_supplier_master
@@ -50,12 +51,23 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SUPPLIER_MASTER_PATH = os.environ.get(
     "W9_SUPPLIER_MASTER_PATH", os.path.join(_REPO_ROOT, "data", "supplier_master.csv")
 )
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 app = FastAPI(
     title="W-9 Onboarding Service",
     description="Optional HTTP interface over the same pipeline the CLI uses.",
     version="0.1.0",
 )
+
+
+@app.get("/", response_class=HTMLResponse)
+def index() -> str:
+    """Optional demo UI -- same-origin fetch to /v1/w9/onboard below, so it
+    just works with `uvicorn main:app` and no CORS/mixed-content setup. Not
+    part of the case study deliverable (the brief doesn't ask for a UI);
+    the CLI remains the primary, required interface."""
+    with open(os.path.join(_STATIC_DIR, "index.html")) as f:
+        return f.read()
 
 _supplier_master_cache: pd.DataFrame | None = None
 

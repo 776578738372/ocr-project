@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>W-9 Onboarding</title>
+<style>
+  :root {
+    --ink: #2b2140;
+    --muted: #7b7192;
+    --bg: #faf7ff;
+    --card: #ffffff;
+    --accent: #8b5cf6;
+    --accent-soft: #ede9fe;
+    --green: #16a34a;
+    --green-soft: #dcfce7;
+    --amber: #b45309;
+    --amber-soft: #fef3c7;
+    --red: #dc2626;
+    --red-soft: #fee2e2;
+    --border: #e9e3f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background: linear-gradient(180deg, var(--bg), #f3edff 400px, var(--bg));
+    color: var(--ink);
+    padding: 32px 16px 64px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    margin-bottom: 12px;
+  }
+  header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  header p { color: var(--muted); margin: 0; font-size: 14px; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 24px; box-shadow: 0 8px 24px rgba(139, 92, 246, 0.06);
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 16px; color: var(--ink); }
+
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  input[type=text], textarea {
+    width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px;
+    font-size: 14px; color: var(--ink); background: #fff; font-family: inherit;
+  }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  .row { margin-bottom: 16px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .two-col { grid-template-columns: 1fr; } }
+
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: 14px; padding: 26px 16px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    background: #fdfcff;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
+  .dropzone .icon { font-size: 26px; margin-bottom: 6px; }
+  .dropzone .fname { font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 6px; }
+  .dropzone .hint { font-size: 12px; color: var(--muted); }
+  input[type=file] { display: none; }
+
+  details summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 600; user-select: none; }
+  .secondary-fields { margin-top: 12px; }
+
+  button {
+    width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 12px;
+    padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: transform .05s, opacity .15s;
+  }
+  button:hover { opacity: .92; }
+  button:active { transform: scale(0.99); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  .result { display: none; }
+  .result.show { display: block; }
+
+  .decision-banner {
+    display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 14px;
+    margin-bottom: 18px; font-weight: 700; font-size: 15px;
+  }
+  .decision-banner .emoji { font-size: 22px; }
+  .decision-banner.create { background: var(--green-soft); color: var(--green); }
+  .decision-banner.update { background: var(--green-soft); color: var(--green); }
+  .decision-banner.review { background: var(--amber-soft); color: var(--amber); }
+  .decision-banner.reject { background: var(--red-soft); color: var(--red); }
+  .decision-banner .sub { font-weight: 400; font-size: 12.5px; opacity: .85; margin-top: 2px; }
+
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+  @media (max-width: 560px) { .field-grid { grid-template-columns: 1fr; } }
+  .field { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .field .k { font-size: 11.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+  .field .v { font-size: 14px; margin-top: 2px; }
+  .field .v.empty { color: var(--muted); font-style: italic; }
+  .confidence { display: inline-block; margin-left: 6px; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+
+  .flag { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; margin-bottom: 8px; font-size: 13px; }
+  .flag.CRITICAL { background: var(--red-soft); color: var(--red); }
+  .flag.WARNING { background: var(--amber-soft); color: var(--amber); }
+  .flag.INFO { background: #f1f5f9; color: #475569; }
+  .flag .code { font-weight: 700; display: block; font-size: 12px; }
+
+  .reasoning-item { font-size: 13px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .reasoning-item:last-child { border-bottom: none; }
+  .reasoning-item .code { font-weight: 700; color: var(--accent); font-size: 12px; display: block; margin-bottom: 2px; }
+
+  pre.raw {
+    background: #1e1b2e; color: #e9e3f7; padding: 16px; border-radius: 12px;
+    font-size: 12px; overflow-x: auto; max-height: 360px;
+  }
+
+  .error-box { background: var(--red-soft); color: var(--red); padding: 14px 16px; border-radius: 12px; font-size: 13px; margin-bottom: 18px; }
+  .spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge"><span class="dot"></span> W-9 Supplier Onboarding</div>
+    <h1>Upload a W-9, get a decision</h1>
+    <p>Demo UI over the local API &mdash; extraction, matching, and risk checks, live.</p>
+  </header>
+
+  <div class="card">
+    <h2>1. Request</h2>
+    <div class="row two-col">
+      <div>
+        <label for="tenantId">Tenant ID</label>
+        <input type="text" id="tenantId" value="tenant_pairsoft_042" />
+      </div>
+      <div></div>
+    </div>
+
+    <div class="row">
+      <label>W-9 document (PDF, PNG, JPEG)</label>
+      <div class="dropzone" id="dropzone">
+        <div class="icon">📄</div>
+        <div>Click to choose a file, or drag it here</div>
+        <div class="hint">Try one from the <code>samples/</code> folder</div>
+        <div class="fname" id="fname"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" />
+    </div>
+
+    <div class="row">
+      <details>
+        <summary>+ Add banking details (optional secondary payload)</summary>
+        <div class="secondary-fields two-col">
+          <div>
+            <label for="routing">Routing number</label>
+            <input type="text" id="routing" placeholder="021000021" />
+          </div>
+          <div>
+            <label for="last4">Account last 4</label>
+            <input type="text" id="last4" placeholder="4821" />
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <button id="submitBtn">Process document</button>
+  </div>
+
+  <div id="errorBox" class="error-box" style="display:none"></div>
+
+  <div class="result" id="result">
+    <div class="card">
+      <div id="decisionBanner" class="decision-banner"></div>
+      <h2>Extracted fields</h2>
+      <div class="field-grid" id="fieldGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Decision reasoning</h2>
+      <div id="reasoningList"></div>
+    </div>
+
+    <div class="card" id="flagsCard">
+      <h2>Validation flags</h2>
+      <div id="flagsList"></div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>Raw JSON response</summary>
+        <pre class="raw" id="rawJson"></pre>
+      </details>
+    </div>
+  </div>
+
+  <footer>Optional demo interface &mdash; the CLI (<code>src/cli.py</code>) is the primary, required entry point.</footer>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fname = document.getElementById('fname');
+const submitBtn = document.getElementById('submitBtn');
+const errorBox = document.getElementById('errorBox');
+const result = document.getElementById('result');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    fname.textContent = fileInput.files[0].name;
+  }
+});
+fileInput.addEventListener('change', () => {
+  fname.textContent = fileInput.files.length ? fileInput.files[0].name : '';
+});
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+function renderField(label, value, confidence) {
+  const empty = value === null || value === undefined || value === '';
+  const confBadge = (confidence !== undefined && confidence !== null)
+    ? `<span class="confidence">${Math.round(confidence * 100)}%</span>` : '';
+  return `<div class="field">
+    <div class="k">${esc(label)}</div>
+    <div class="v ${empty ? 'empty' : ''}">${empty ? 'not found' : esc(value)}${empty ? '' : confBadge}</div>
+  </div>`;
+}
+
+const DECISION_META = {
+  CREATE_NEW:            { cls: 'create', emoji: '🆕', label: 'Create new supplier' },
+  UPDATE_EXISTING:       { cls: 'update', emoji: '✅', label: 'Update existing supplier' },
+  ROUTE_TO_HUMAN_REVIEW: { cls: 'review', emoji: '🕵️', label: 'Route to human review' },
+  REJECTED:              { cls: 'reject', emoji: '🚫', label: 'Rejected' },
+};
+
+async function submit() {
+  errorBox.style.display = 'none';
+  result.classList.remove('show');
+
+  const file = fileInput.files[0];
+  if (!file) { showError('Choose a W-9 file first.'); return; }
+
+  const tenantId = document.getElementById('tenantId').value.trim();
+  if (!tenantId) { showError('Tenant ID is required.'); return; }
+
+  const routing = document.getElementById('routing').value.trim();
+  const last4 = document.getElementById('last4').value.trim();
+
+  const form = new FormData();
+  form.append('tenant_id', tenantId);
+  form.append('file', file);
+  if (routing && last4) {
+    form.append('secondary_payload', JSON.stringify({
+      banking: { routing_number: routing, account_number_last4: last4, account_holder_name: '' }
+    }));
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner"></span>Processing…';
+  try {
+    const res = await fetch('/v1/w9/onboard', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) { showError(data.detail || `Request failed (HTTP ${res.status})`); return; }
+    renderResult(data);
+  } catch (err) {
+    showError('Could not reach the API. Is uvicorn running? (' + err.message + ')');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Process document';
+  }
+}
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.style.display = 'block';
+}
+
+function renderResult(data) {
+  const meta = DECISION_META[data.decision.action] || { cls: 'review', emoji: 'ℹ️', label: data.decision.action };
+  const banner = document.getElementById('decisionBanner');
+  banner.className = 'decision-banner ' + meta.cls;
+  const matchLine = data.decision.matched_supplier_id
+    ? `Matched supplier: ${esc(data.decision.matched_supplier_id)} &middot; confidence ${Math.round(data.decision.overall_match_confidence * 100)}%`
+    : `Confidence ${Math.round(data.decision.overall_match_confidence * 100)}% &middot; via ${esc(data.processing_metadata.extraction_path)}`;
+  banner.innerHTML = `<span class="emoji">${meta.emoji}</span><div><div>${meta.label}</div><div class="sub">${matchLine}</div></div>`;
+
+  const grid = document.getElementById('fieldGrid');
+  const f = data.extracted_fields;
+  if (f) {
+    grid.innerHTML = [
+      renderField('Legal name', f.legal_name.value, f.legal_name.confidence),
+      renderField('DBA name', f.dba_name.value, f.dba_name.confidence),
+      renderField('Tax classification', f.tax_classification.value, f.tax_classification.confidence),
+      renderField('TIN type', f.tin.type, f.tin.confidence),
+      renderField('TIN (masked)', f.tin.value_masked, f.tin.confidence),
+      renderField('Street', f.address.street.value, f.address.street.confidence),
+      renderField('City / State / ZIP', [f.address.city.value, f.address.state.value, f.address.zip.value].filter(Boolean).join(', ') || null, f.address.city.confidence),
+      renderField('Signed', f.certification.signed ? `Yes (${f.certification.date || 'no date'})` : 'No', f.certification.confidence),
+    ].join('');
+  } else {
+    grid.innerHTML = '<div class="field"><div class="v empty">No extraction ran (document was rejected before extraction).</div></div>';
+  }
+
+  document.getElementById('reasoningList').innerHTML = data.decision.decision_reasoning.map(r =>
+    `<div class="reasoning-item"><span class="code">${esc(r.code)}</span>${esc(r.message)}</div>`
+  ).join('') || '<div class="reasoning-item">No reasoning codes.</div>';
+
+  const flagsCard = document.getElementById('flagsCard');
+  const flags = data.validation_flags || [];
+  if (flags.length) {
+    flagsCard.style.display = 'block';
+    document.getElementById('flagsList').innerHTML = flags.map(fl =>
+      `<div class="flag ${fl.severity}"><div><span class="code">${esc(fl.code)} &middot; ${fl.severity}</span>${esc(fl.message)}</div></div>`
+    ).join('');
+  } else {
+    flagsCard.style.display = 'none';
+  }
+
+  document.getElementById('rawJson').textContent = JSON.stringify(data, null, 2);
+  result.classList.add('show');
+  result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+submitBtn.addEventListener('click', submit);
+</script>
+</body>
+</html>
