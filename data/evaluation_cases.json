@@ -139,5 +139,27 @@
       "matched_supplier_id": null,
       "decision_reasoning_codes_include": ["WARN_BANK_ACCOUNT_SHARED_ACROSS_SUPPLIERS"]
     }
+  },
+  {
+    "name": "real_official_fillable_pdf_acroform_extraction",
+    "description": "The ACTUAL official IRS fillable W-9 PDF (2024 revision), filled out digitally -- not one of our synthetic samples. Proves extraction/acroform.py's widget-field extraction works on real-world input: this document's filled values live in AcroForm fields, not the text stream, so get_text()-based regex alone returned nothing at all when first tested (see git history). Unsigned by design (no ink/digital signature applied), so it correctly still routes to human review despite otherwise-clean extraction -- ERR_NOT_SIGNED is a real, independent block, not a symptom of failed extraction this time.",
+    "file": "samples/fw9_filled_test_supplier.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "validation_flag_codes_include": ["ERR_NOT_SIGNED"],
+      "extracted_fields": {
+        "legal_name": "Apex Industrial Supplies LLC",
+        "dba_name": "Apex Industrial Supply",
+        "tax_classification.value": "llc",
+        "tax_classification.llc_subclass": "C",
+        "address.city": "Dallas",
+        "address.state": "TX",
+        "address.zip": "75212",
+        "tin.type": "EIN",
+        "tin.value_masked": "xx-xxx6789"
+      }
+    }
   }
 ]

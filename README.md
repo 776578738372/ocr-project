@@ -49,10 +49,10 @@ Every module's docstring opens with `STATUS: REAL`, `STATUS: MOCK`, or `STATUS: 
    produces or consumes these types.
 2. **[`src/decision/pipeline.py`](src/decision/pipeline.py)** — the state machine itself
    (`[0] UNINIT` → `[7] TERMINATED`). Read this next; it calls everything else in order.
-3. **[`tests/test_decision.py`](tests/test_decision.py)** — run this to see eleven real scenarios
+3. **[`tests/test_decision.py`](tests/test_decision.py)** — run this to see twelve real scenarios
    (clean match, new supplier, TIN hijack, unsigned form, wrong form, invalid file, scanned photo,
-   scanned PDF wrapper, banking-change override, cross-tenant isolation, shared-bank-account fraud)
-   each produce the correct decision.
+   scanned PDF wrapper, banking-change override, cross-tenant isolation, shared-bank-account fraud,
+   and the actual official IRS fillable PDF via AcroForm extraction) each produce the correct decision.
 
 ## Setup
 
@@ -89,7 +89,7 @@ different FSM path (see `data/evaluation_cases.json` for the full list with expe
 
 ```bash
 python -m pytest -v                                    # everything, verbose
-python -m pytest tests/test_decision.py -v              # the 9 end-to-end scenarios specifically
+python -m pytest tests/test_decision.py -v              # the 12 end-to-end scenarios specifically
 ```
 
 `tests/test_decision.py` is parametrized over `data/evaluation_cases.json` and also reports
@@ -155,10 +155,16 @@ produce results identical to the CLI.
   `[1] INGESTED` runs a 3-stage probe (file format → PyMuPDF embedded-text check → text-density
   fallback) to route each document to `[2A]` deterministic layout parsing or `[2B]` a vision model.
   See `src/extraction/classifier.py`.
-- **`[2A] LAYOUT_OCR` is real, not mocked.** For a digital PDF with an embedded text layer, PyMuPDF
-  pulls the actual text and regexes anchored on the W-9's own field labels locate each field. This
-  only runs on documents the classifier has already confirmed have genuine embedded text — anything
-  else (scans, photos, wrong-form-entirely) goes to `[2B]` instead.
+- **`[2A] LAYOUT_OCR` is real, not mocked — and reads AcroForm fields, not just text.** For a digital
+  PDF with an embedded text layer, PyMuPDF pulls the actual text and regexes anchored on the W-9's
+  own field labels locate each field. This only runs on documents the classifier has already
+  confirmed have genuine embedded text — anything else (scans, photos, wrong-form-entirely) goes to
+  `[2B]` instead. **A real gap found by testing against the actual official IRS fillable PDF (not a
+  synthetic sample):** a genuinely fillable PDF stores typed values in AcroForm widget fields, not
+  the text stream — `get_text()` returned nothing at all, despite the form being clearly filled out.
+  `src/extraction/acroform.py` reads widget values directly and is tried first; text-regex is the
+  fallback for flattened/non-fillable PDFs. See `tests/test_extraction.py`'s regression test against
+  the real file.
 - **Confidence is derived, not self-reported.** For layout OCR, confidence reflects whether a label
   anchor matched and the value passed its own format check — not a model's opinion of itself.
 - **TIN never travels in plaintext past extraction.** `src/utils/security.py` is the one place raw

@@ -1,15 +1,27 @@
 """STATUS: REAL. [2A] LAYOUT_OCR: deterministic extraction for digital PDFs
 with an embedded text layer.
 
-This is real, working extraction, not a stub: PyMuPDF pulls the actual text
-stream out of the PDF (the same signal the classifier used to route the
-document here), and a set of regexes anchored on the W-9's own field labels
-("1 Name (as shown on your income tax return):", "Part I Taxpayer
-Identification Number (TIN):", etc.) locates each field. Because the text is
-a native digital layer rather than a raster scan, there's no OCR-token
-confidence to report -- confidence here reflects structural certainty: did
-the label anchor match, and does the captured value pass its own format
-check (TIN shape, state code, zip, checkbox exclusivity).
+Two extraction sources, tried in order:
+  1. AcroForm widget fields (extraction/acroform.py) -- checked first, since
+     a genuinely fillable PDF (like IRS's own published fillable W-9) stores
+     typed values in form fields, not in the page's text stream at all.
+     Discovered as a real gap by testing against the actual official PDF:
+     every field came back null despite the form being clearly filled out,
+     because get_text() only ever sees the static labels. See acroform.py's
+     docstring for the field-name mapping and its scope (tuned to IRS's own
+     template specifically).
+  2. Text-stream regexes, as before -- PyMuPDF pulls the actual text stream
+     out of the PDF, and a set of regexes anchored on the W-9's own field
+     labels ("1 Name (as shown on your income tax return):", "Part I
+     Taxpayer Identification Number (TIN):", etc.) locates each field. This
+     is what runs for a flattened/printed-and-typed/non-fillable PDF, where
+     there's no widget layer to read at all.
+
+Because the text is a native digital layer rather than a raster scan,
+there's no OCR-token confidence to report -- confidence here reflects
+structural certainty: did the label anchor (or AcroForm field) match, and
+does the captured value pass its own format check (TIN shape, state code,
+zip, checkbox exclusivity).
 
 Known scope cut: checkbox *state* (checked vs. unchecked) is read as literal
 "[X]" / "[ ]" text tokens. A real scanned or hand-marked form doesn't render
@@ -25,6 +37,7 @@ import re
 
 import pymupdf as fitz
 
+from extraction.acroform import extract_from_widgets, looks_like_this_template
 from schemas.schema import (
     Address,
     Certification,
@@ -95,6 +108,13 @@ class LayoutOCRExtractor:
     def extract(self, file_bytes: bytes) -> ExtractedFields:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         try:
+            field_values = {
+                w.field_name: w.field_value
+                for page in doc for w in page.widgets()
+            }
+            if looks_like_this_template(field_values):
+                return extract_from_widgets(field_values)
+
             text = "\n".join(page.get_text() for page in doc)
         finally:
             doc.close()

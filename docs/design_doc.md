@@ -77,9 +77,14 @@ This routing is cheap (milliseconds, no external API call) and deterministic, so
 
 ### 3.2 `[2A]` Layout OCR: real extraction, not a stub
 
-For documents routed here, PyMuPDF extracts the actual embedded text stream, and a set of regexes anchored on the W-9's own field labels ("1 Name (as shown on your income tax return):", "Part I Taxpayer Identification Number (TIN):", etc.) locates each field. This is genuinely working extraction — verified against 9 generated sample documents with 100% field-level accuracy (`tests/test_decision.py`) — not a placeholder.
+Two sources, tried in order:
 
-**Confidence here is derived, not self-reported.** Because this is a native text layer rather than a raster scan, there's no OCR-token confidence to report. Confidence instead reflects structural certainty: did the label anchor match, and does the captured value pass its own format check (TIN shape, valid state code, checkbox exclusivity). A field that wasn't found gets `0.0`, not a guessed mid-range number — see §5 on why "I don't know" is a first-class signal, not an afterthought.
+1. **AcroForm widget fields** (`extraction/acroform.py`) — checked first. A real, official fillable PDF (IRS's own published `fw9.pdf`) stores what a supplier types into it in form-field *widgets*, not in the page's text stream at all. This was found as a real gap, not designed in advance: testing against the actual official IRS fillable PDF (not one of our synthetic samples) initially returned every field as `null`, because `page.get_text()` only ever sees the static labels/instructions — the filled values are invisible to it. `page.widgets()` reads them directly. The field-name mapping is tuned to IRS's own template specifically (stable, since IRS publishes one canonical fillable PDF); a differently-authored fillable PDF falls through to source 2 instead.
+2. **Text-stream regexes**, as originally designed — PyMuPDF extracts the embedded text stream, and a set of regexes anchored on the W-9's own field labels ("1 Name (as shown on your income tax return):", "Part I Taxpayer Identification Number (TIN):", etc.) locates each field. This is what runs for a flattened, printed-and-typed, or non-fillable PDF — anything without a widget layer to read.
+
+Both are genuinely working extraction — verified against 9 synthetic generated documents plus the actual official IRS fillable PDF, 100% field-level accuracy (`tests/test_decision.py`) — not a placeholder.
+
+**Confidence here is derived, not self-reported.** Because this is a native text/form layer rather than a raster scan, there's no OCR-token confidence to report. Confidence instead reflects structural certainty: did the label anchor (or AcroForm field) match, and does the captured value pass its own format check (TIN shape, valid state code, checkbox exclusivity). A field that wasn't found gets `0.0`, not a guessed mid-range number — see §5 on why "I don't know" is a first-class signal, not an afterthought.
 
 **Known limitation, accepted deliberately:** checkbox *state* is read as a literal `[X]`/`[ ]` text token, because that's genuinely what a text-extraction layer sees on a digital, machine-generated PDF. A hand-marked checkbox (a scribbled X, a circle, a checkmark glyph) doesn't render as text at all — which is exactly why this path only runs on documents the classifier has already confirmed have a real embedded text layer. Anything hand-marked, scanned, or photographed is routed to `[2B]` instead, where a vision model reads the mark directly rather than this module guessing at it.
 
@@ -88,7 +93,7 @@ For documents routed here, PyMuPDF extracts the actual embedded text stream, and
 This path needs a vision-capable model call, which costs money and (for the prototype) an API key. Two implementations behind one `Extractor` interface:
 
 - **`MockVLMExtractor` (default).** Returns every field as unknown — `value: null, confidence: 0.0` — with an evidence string naming exactly why ("no live vision model configured"). This is a deliberate design choice, not a shortcut: it does **not** fabricate a plausible-looking extraction it never actually performed. That low confidence flows straight into `validation_flags` (`ERR_MISSING_LEGAL_NAME`, `ERR_INVALID_TIN`) and correctly forces `ESCALATED_HUMAN` — the system degrades to "I don't know, a human should look" rather than guessing.
-- **`AnthropicVLMExtractor` (real).** Sends the image with a tool-use schema asking for each field plus a confidence and evidence quote. Activates automatically the moment `ANTHROPIC_API_KEY` is set (`extraction/vlm_extraction.py:get_vlm_extractor`) — no pipeline changes. Model self-reported confidence is treated as informative but not trusted on its own — the same `validation/rules.py` layer that checks layout-OCR output independently checks VLM output (TIN format, state code, signature presence), so a model's overconfidence on a wrong TIN doesn't survive.
+- **`AnthropicVLMExtractor` (real).** Sends the image with a tool-use schema asking for each field plus a confidence and evidence quote. Activates automatically the moment `ANTHROPIC_API_KEY` is set (`providers/vlm_provider.py:get_vlm_extractor`) — no pipeline changes. Model self-reported confidence is treated as informative but not trusted on its own — the same `validation/rules.py` layer that checks layout-OCR output independently checks VLM output (TIN format, state code, signature presence), so a model's overconfidence on a wrong TIN doesn't survive.
 
 ### 3.4 Alternatives considered
 
@@ -195,6 +200,7 @@ At the stated volume (20K–100K docs/month) and assuming roughly 70–80% of tr
 | Multiple tax-classification boxes checked | **Handled** | Flagged as `WARN_TAX_CLASSIFICATION_AMBIGUOUS`, not silently resolved to the first match. |
 | TIN type inconsistent with entity type (e.g. a corporation with an SSN) | **Handled** | Per the brief's own reference material and the real W-9 instructions, a corporation/partnership/trust must use an EIN, never a personal SSN. Individual/sole-proprietor and LLC are deliberately excluded from this check — the real form explicitly permits either for those. `WARN_TIN_TYPE_INCONSISTENT_WITH_CLASSIFICATION` (`validation/rules.py`). |
 | Hand-marked checkboxes on an otherwise-digital PDF | **Deferred** | Would need bounding-box/vision analysis layered onto a text-based PDF — routed to `[2B]` only if the classifier's text-density signal happens to catch it; a PDF that's mostly digital text with one hand-drawn mark could slip through `[2A]` and misread that one checkbox. Noted as a real gap, not silently absorbed. |
+| Genuinely fillable PDF (e.g. IRS's own published fillable W-9) | **Handled** | `extraction/acroform.py` reads AcroForm widget values directly — found as a real gap by testing against the actual official PDF, not designed for in advance. See §3.2. |
 | Exemption codes (Line 4), account numbers (Line 7) | **Deferred** | Brief's own reference material: "usually blank for typical business suppliers." |
 | Non-US suppliers / W-8 series as a first-class flow | **Deferred**, by explicit scope | Brief states US-only; W-8 detection here is a validation flag, not a parallel pipeline. |
 | IRS TIN Matching, OFAC/sanctions screening | **Mock provider wired into the pipeline** (`validation/compliance.py`), real integration deferred | The integration point is real code, not just prose: every response's `validation_flags` includes `INFO_TIN_MATCHING_NOT_PERFORMED` / `INFO_OFAC_SCREENING_NOT_PERFORMED`, honestly reporting these checks didn't run rather than omitting them or faking a clean result. Swapping in a real IRS e-Services / sanctions-screening client is a new class behind the same two-method interface — no pipeline changes. |
@@ -205,7 +211,7 @@ At the stated volume (20K–100K docs/month) and assuming roughly 70–80% of tr
 | Component | Status |
 |---|---|
 | Classifier (3-stage routing) | Real |
-| `[2A]` Layout OCR extraction | Real (PyMuPDF + regex, verified against 9 samples, 100% field accuracy) |
+| `[2A]` Layout OCR extraction | Real (AcroForm widgets + PyMuPDF/regex fallback, verified against 9 synthetic samples plus the actual official IRS fillable PDF, 100% field accuracy) |
 | `[2B]` VLM extraction | Real implementation exists (`AnthropicVLMExtractor`); defaults to an honest mock absent an API key |
 | Validation rules | Real |
 | Matching (blocking + scoring + override) | Real, in-memory (production would push blocking to the supplier master's own search API — see §4) |
