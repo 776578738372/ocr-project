@@ -9,14 +9,17 @@ adapter with zero duplicated logic -- every request calls the exact same
 `pipeline.run_pipeline` function the CLI calls, against the same CSV-based
 supplier master the brief specifies for this exercise.
 
-Prototype simplification: this demo has one supplier master file
-(data/supplier_master.csv), so `tenant_id` is accepted and passed through
-into the response/audit trail (it's part of the real contract and the
-tenant-isolation story -- see design_doc.md §7) but doesn't select between
-multiple files the way a real multi-tenant supplier-master service would.
-Swapping in per-tenant resolution (or a real supplier-master query API) is a
-change to `_get_supplier_master` alone -- nothing else in this file, or in
-`decision/pipeline.py`, needs to know the difference.
+Multi-tenancy: this demo has one shared supplier master file
+(data/supplier_master.csv) with a `tenant_id` column covering multiple
+fictional tenants, rather than one file per tenant -- but isolation is
+still real and enforced, just at a different layer. `_get_supplier_master`
+loads the whole file; `decision/pipeline.py` filters it down to only the
+requesting `tenant_id`'s rows *before* any candidate generation runs, so a
+different tenant's supplier -- even one with an identical name -- is never
+in the candidate pool at all (see tests/test_decision.py's
+`tenant_isolation_same_name_different_tenant` case). Swapping this file for
+a real supplier-master query API scoped by `tenant_id` is a change to
+`_get_supplier_master` alone -- nothing else needs to know the difference.
 
 Run from the repo root (--app-dir puts src/ on the import path without
 needing to cd into it, which matters since decision/schemas/matching/etc.

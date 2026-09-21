@@ -55,7 +55,7 @@ def _run_case(case: dict):
 
     return run_pipeline(
         file_bytes=file_bytes,
-        tenant_id="tenant_pairsoft_eval",
+        tenant_id=case.get("tenant_id", "tenant_pairsoft_042"),
         supplier_df=supplier_df,
         secondary_payload=secondary_payload,
     )
@@ -74,6 +74,14 @@ def test_scenario_decision(case):
 
     if "extraction_path" in expected:
         assert response.processing_metadata.extraction_path.value == expected["extraction_path"]
+
+    if "max_candidates_evaluated" in expected:
+        # Proves tenant isolation: the candidate pool size bounds how many
+        # OTHER tenants' rows could possibly have leaked in. If this tenant
+        # has 2 suppliers total, candidates_evaluated can never exceed 2 --
+        # regardless of how many rows a different tenant has in the same CSV.
+        assert response.match_evidence is not None
+        assert response.match_evidence.candidates_evaluated <= expected["max_candidates_evaluated"]
 
     for code in expected.get("validation_flag_codes_include", []):
         assert any(f.code == code for f in response.validation_flags), (

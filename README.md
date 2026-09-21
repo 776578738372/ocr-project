@@ -163,6 +163,12 @@ produce results identical to the CLI.
 - **TIN never travels in plaintext past extraction.** `src/utils/security.py` is the one place raw
   digits are touched; everywhere else (validation, matching, decision, output) works with a masked
   value or a derived token. Matching against the supplier master compares tokens, never raw TINs.
+- **Tenant isolation is real, not just a documented intent.** `data/supplier_master.csv` holds
+  multiple tenants; `src/decision/pipeline.py` filters to the requesting `tenant_id`'s rows *before*
+  candidate generation runs. Proven with a deliberate name collision: two different tenants each
+  have an unrelated company named "Acme Corporation" — a request scores a perfect 1.0 name match
+  against the *other* tenant's same-named supplier but never sees it (filtered out first). See
+  `tests/test_decision.py::tenant_isolation_same_name_different_tenant`.
 - **A CRITICAL validation flag can override a match decision.** This is an addition on top of the
   FSM's match-driven routing, not a replacement for it: even a clean supplier match shouldn't be
   auto-applied against a document that's unsigned, has no valid TIN, or looks like the wrong form

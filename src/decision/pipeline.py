@@ -95,7 +95,13 @@ def run_pipeline(
     flags = validate(fields)
 
     state_trace += ["KYS_CHECKED", "TIN_SEARCHED"]
-    match_result = match_supplier(fields, supplier_df, secondary_payload)
+    # Tenant isolation, enforced here rather than trusted from the caller:
+    # a different tenant's supplier -- even one with an identical name or
+    # the exact same TIN -- is filtered out before candidate generation
+    # ever sees it, not merely excluded by some later check that a caller
+    # could forget to apply.
+    tenant_supplier_df = supplier_df[supplier_df["tenant_id"] == tenant_id]
+    match_result = match_supplier(fields, tenant_supplier_df, secondary_payload)
     if match_result.match_evidence.tin_match:
         state_trace.append("EVAL_CHANGE")
 

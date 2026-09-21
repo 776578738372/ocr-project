@@ -142,8 +142,15 @@ def write_invalid_file(path: str) -> None:
 
 
 def write_supplier_master(path: str) -> None:
+    # Two tenants, deliberately including a name collision ("Acme Corporation"
+    # exists under both, as two genuinely different companies) to prove
+    # isolation is real: decision/pipeline.py filters by tenant_id before
+    # candidate generation ever runs, so tenant_globex_099's request can
+    # never see tenant_pairsoft_042's "Acme Corporation" record, and vice
+    # versa, regardless of how similar the names or TINs look.
     rows = [
         {
+            "tenant_id": "tenant_pairsoft_042",
             "supplier_id": "sup_00417",
             "legal_name": "Acme Corporation",
             "dba_name": "",
@@ -160,6 +167,7 @@ def write_supplier_master(path: str) -> None:
             "last_updated_at": "2025-11-02",
         },
         {
+            "tenant_id": "tenant_pairsoft_042",
             "supplier_id": "sup_00892",
             "legal_name": "Globex Industries Inc",
             "dba_name": "Globex",
@@ -176,6 +184,7 @@ def write_supplier_master(path: str) -> None:
             "last_updated_at": "2025-08-14",
         },
         {
+            "tenant_id": "tenant_pairsoft_042",
             "supplier_id": "sup_01203",
             "legal_name": "Initech LLC",
             "dba_name": "",
@@ -190,6 +199,40 @@ def write_supplier_master(path: str) -> None:
             "bank_account_holder_name": "Initech LLC",
             "status": "active",
             "last_updated_at": "2025-06-30",
+        },
+        {
+            "tenant_id": "tenant_globex_099",
+            "supplier_id": "sup_77001",
+            "legal_name": "Acme Corporation",  # same name, genuinely a different company
+            "dba_name": "",
+            "tin_token": tokenize_tin("60-1112223"),
+            "tax_classification": "s_corporation",
+            "address_street": "88 Harbor Blvd",
+            "address_city": "Newark",
+            "address_state": "NJ",
+            "address_zip": "07102",
+            "bank_routing_hash": hash_identifier("021201162"),
+            "bank_account_last4": "2201",
+            "bank_account_holder_name": "Acme Corporation",
+            "status": "active",
+            "last_updated_at": "2025-09-01",
+        },
+        {
+            "tenant_id": "tenant_globex_099",
+            "supplier_id": "sup_77002",
+            "legal_name": "Fairview Medical Supply Co",
+            "dba_name": "",
+            "tin_token": tokenize_tin("71-4455667"),
+            "tax_classification": "c_corporation",
+            "address_street": "310 Cedar Ave",
+            "address_city": "Portland",
+            "address_state": "OR",
+            "address_zip": "97201",
+            "bank_routing_hash": hash_identifier("123000220"),
+            "bank_account_last4": "5566",
+            "bank_account_holder_name": "Fairview Medical Supply Co",
+            "status": "active",
+            "last_updated_at": "2025-07-22",
         },
     ]
     with open(path, "w", newline="") as f:

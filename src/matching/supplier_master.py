@@ -7,10 +7,17 @@ says already exists.
 Columns, matching the case study's description of the existing supplier
 master plus the token/hash fields our matcher actually needs:
 
-  supplier_id, legal_name, dba_name, tin_token, tax_classification,
+  tenant_id, supplier_id, legal_name, dba_name, tin_token, tax_classification,
   address_street, address_city, address_state, address_zip,
   bank_routing_hash, bank_account_last4, bank_account_holder_name,
   status, last_updated_at
+
+`tenant_id` is what enforces "customer data is strictly isolated" (per the
+case study) at the query layer: decision/pipeline.py filters this DataFrame
+down to only the requesting tenant's rows *before* candidate generation
+ever runs, so a different tenant's supplier -- even one with an identical
+name or the same TIN -- is never in the candidate pool at all, not merely
+excluded by a downstream check.
 
 `tin_token` and `bank_routing_hash` stand in for "TIN (encrypted at rest)"
 and "bank account (encrypted)" from the prompt: in production these would be
@@ -26,7 +33,7 @@ from __future__ import annotations
 import pandas as pd
 
 REQUIRED_COLUMNS = [
-    "supplier_id", "legal_name", "dba_name", "tin_token", "tax_classification",
+    "tenant_id", "supplier_id", "legal_name", "dba_name", "tin_token", "tax_classification",
     "address_street", "address_city", "address_state", "address_zip",
     "bank_routing_hash", "bank_account_last4", "bank_account_holder_name",
     "status", "last_updated_at",

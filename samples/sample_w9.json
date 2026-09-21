@@ -1,9 +1,9 @@
 {
   "api_version": "2026-09-01",
-  "request_id": "req_45512344678f",
+  "request_id": "req_54ebc0a082ae",
   "tenant_id": "tenant_pairsoft_042",
-  "received_at": "2026-09-21T07:54:19.093411Z",
-  "processing_time_ms": 6,
+  "received_at": "2026-09-21T09:40:29.944196Z",
+  "processing_time_ms": 8,
   "processing_metadata": {
     "extraction_path": "layout_ocr",
     "routing_signal": "pdf_embedded_text",

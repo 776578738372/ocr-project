@@ -7,6 +7,7 @@
     "expected": {
       "decision_action": "UPDATE_EXISTING",
       "matched_supplier_id": "sup_00417",
+      "max_candidates_evaluated": 1,
       "extracted_fields": {
         "legal_name": "Acme Corporation",
         "tin.type": "EIN",
@@ -114,6 +115,18 @@
       "decision_action": "ROUTE_TO_HUMAN_REVIEW",
       "matched_supplier_id": null,
       "decision_reasoning_codes_include": ["WARN_HIGH_RISK_BANKING_CHANGE"]
+    }
+  },
+  {
+    "name": "tenant_isolation_same_name_different_tenant",
+    "description": "The exact same document (Acme Corporation, TIN 27-4821093) submitted under a DIFFERENT tenant that happens to also have an unrelated supplier also named 'Acme Corporation' (different TIN/address/tax classification). Proves tenant_id is enforced at the query layer: tenant_pairsoft_042's real Acme record (sup_00417) must never be visible to, or matched against, tenant_globex_099's request -- even with a perfect 1.0 name-similarity score against tenant_globex_099's own same-named supplier.",
+    "file": "samples/clean_w9_acme.pdf",
+    "secondary_payload": null,
+    "tenant_id": "tenant_globex_099",
+    "expected": {
+      "decision_action": "CREATE_NEW",
+      "matched_supplier_id": null,
+      "max_candidates_evaluated": 1
     }
   }
 ]
