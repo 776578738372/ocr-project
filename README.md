@@ -49,9 +49,10 @@ Every module's docstring opens with `STATUS: REAL`, `STATUS: MOCK`, or `STATUS: 
    produces or consumes these types.
 2. **[`src/decision/pipeline.py`](src/decision/pipeline.py)** — the state machine itself
    (`[0] UNINIT` → `[7] TERMINATED`). Read this next; it calls everything else in order.
-3. **[`tests/test_decision.py`](tests/test_decision.py)** — run this to see nine real scenarios
+3. **[`tests/test_decision.py`](tests/test_decision.py)** — run this to see eleven real scenarios
    (clean match, new supplier, TIN hijack, unsigned form, wrong form, invalid file, scanned photo,
-   scanned PDF wrapper, banking-change override) each produce the correct decision.
+   scanned PDF wrapper, banking-change override, cross-tenant isolation, shared-bank-account fraud)
+   each produce the correct decision.
 
 ## Setup
 
@@ -176,6 +177,12 @@ produce results identical to the CLI.
 - **Banking/routing changes always force human review**, independent of name-match confidence — see
   `src/matching/scoring.py`. A high name-similarity score should never be able to paper over a
   changed payment destination.
+- **A separate, tenant-wide check catches "multiple vendors, one bank account" — the case study's
+  own named fraud pattern that per-supplier matching structurally can't see.** `src/matching/risk_signals.py`
+  scans every supplier this tenant already has, not just the one a document matched (or didn't):
+  a brand-new, otherwise-clean "new supplier" claiming a bank account already on file for a
+  *different* existing supplier is forced to human review. Each fake vendor looks individually
+  clean to the matcher; only a tenant-wide account scan catches the pattern.
 - **TIN Matching / OFAC screening are mock providers wired into the real pipeline, not just prose.**
   `src/providers/compliance_provider.py` has no live IRS/sanctions integration — it honestly reports
   "not checked" (`INFO_TIN_MATCHING_NOT_PERFORMED` / `INFO_OFAC_SCREENING_NOT_PERFORMED`) on every

@@ -28,6 +28,7 @@ from schemas.schema import (
 from extraction.layout_ocr import LayoutOCRExtractor
 from providers.vlm_provider import MockVLMExtractor, get_vlm_extractor
 from extraction.classifier import InvalidFileError, classify
+from matching.risk_signals import check_shared_bank_account
 from matching.scoring import match_supplier
 from validation.rules import has_blocking_flag, validate
 
@@ -108,6 +109,22 @@ def run_pipeline(
     action = match_result.action
     matched_supplier_id = match_result.matched_supplier_id
     reasoning = list(match_result.decision_reasoning)
+
+    # Tenant-wide fraud signal, independent of whether THIS document matched
+    # anything: does the incoming bank account already belong to a
+    # DIFFERENT supplier this tenant has on file? Reusing your own account
+    # (exclude_supplier_id) is normal; a different supplier already having
+    # it is the "multiple vendors, one bank account" fraud pattern.
+    shared_bank = check_shared_bank_account(secondary_payload, tenant_supplier_df, matched_supplier_id)
+    if shared_bank.shared:
+        action = DecisionAction.ROUTE_TO_HUMAN_REVIEW
+        matched_supplier_id = None
+        reasoning.append(DecisionReason(
+            code="WARN_BANK_ACCOUNT_SHARED_ACROSS_SUPPLIERS",
+            message=f"Incoming bank account is already on file for a different supplier "
+                    f"({shared_bank.conflicting_supplier_id}: {shared_bank.conflicting_legal_name}); "
+                    "possible multiple-vendors-one-account fraud pattern.",
+        ))
 
     if has_blocking_flag(flags):
         action = DecisionAction.ROUTE_TO_HUMAN_REVIEW

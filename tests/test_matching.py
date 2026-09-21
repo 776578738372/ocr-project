@@ -13,6 +13,7 @@ from schemas.schema import (
     TinInfo,
 )
 from matching.blocking import normalize_business_name
+from matching.risk_signals import check_shared_bank_account
 from matching.scoring import match_supplier
 from utils.security import hash_identifier, tokenize_tin
 
@@ -117,3 +118,38 @@ def test_matching_banking_on_file_does_not_escalate():
     result = match_supplier(fields, make_supplier_df(), secondary_payload=payload)
     assert result.action == DecisionAction.UPDATE_EXISTING
     assert result.match_evidence.banking_change_detected is False
+
+
+def _two_supplier_df() -> pd.DataFrame:
+    acme = make_supplier_df()
+    globex = make_supplier_df(
+        supplier_id="sup_00892", legal_name="Globex Industries Inc", dba_name="Globex",
+        tin_token=tokenize_tin("45-1122334"), address_street="500 Commerce Dr",
+        address_city="Austin", address_state="TX", address_zip="73301",
+        bank_routing_hash=hash_identifier("111000025"), bank_account_last4="7788",
+        bank_account_holder_name="Globex Industries Inc",
+    )
+    return pd.concat([acme, globex], ignore_index=True)
+
+
+def test_shared_bank_account_across_different_suppliers_is_flagged():
+    payload = SecondaryPayload(banking=BankingInfo(
+        routing_number="111000025", account_number_last4="7788", account_holder_name="Some New Vendor LLC",
+    ))
+    result = check_shared_bank_account(payload, _two_supplier_df(), exclude_supplier_id=None)
+    assert result.shared is True
+    assert result.conflicting_supplier_id == "sup_00892"
+
+
+def test_reusing_own_bank_account_is_not_flagged():
+    # Same account as sup_00417 (Acme) itself -- normal, not a signal, when excluded as "self".
+    payload = SecondaryPayload(banking=BankingInfo(
+        routing_number="021000021", account_number_last4="4821", account_holder_name="Acme Corporation",
+    ))
+    result = check_shared_bank_account(payload, _two_supplier_df(), exclude_supplier_id="sup_00417")
+    assert result.shared is False
+
+
+def test_no_secondary_payload_is_not_flagged():
+    result = check_shared_bank_account(None, _two_supplier_df(), exclude_supplier_id=None)
+    assert result.shared is False

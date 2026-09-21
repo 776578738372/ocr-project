@@ -128,5 +128,16 @@
       "matched_supplier_id": null,
       "max_candidates_evaluated": 1
     }
+  },
+  {
+    "name": "shared_bank_account_across_suppliers",
+    "description": "A brand-new, unrelated supplier (Bright Path Logistics -- no TIN/name match to anything) claims a bank account that's already on file for a completely different existing supplier (Globex Industries Inc). Would otherwise auto-resolve to CREATE_NEW; the cross-supplier bank-account check catches the 'multiple vendors, one bank account' fraud pattern the case study names explicitly, which per-supplier matching alone can't see.",
+    "file": "samples/clean_w9_newco.pdf",
+    "secondary_payload": "samples/secondary_payload_shared_bank_account.json",
+    "expected": {
+      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
+      "matched_supplier_id": null,
+      "decision_reasoning_codes_include": ["WARN_BANK_ACCOUNT_SHARED_ACROSS_SUPPLIERS"]
+    }
   }
 ]
