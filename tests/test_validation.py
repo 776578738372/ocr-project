@@ -34,6 +34,15 @@ def test_clean_fields_produce_no_blocking_flags():
     assert not has_blocking_flag(flags)
 
 
+def test_mock_compliance_checks_are_always_reported_as_not_performed():
+    # MOCK: validation/compliance.py has no real IRS/OFAC integration -- every
+    # response should honestly say so via INFO flags, never silently omit them.
+    codes = [f.code for f in validate(make_fields())]
+    assert "INFO_TIN_MATCHING_NOT_PERFORMED" in codes
+    assert "INFO_OFAC_SCREENING_NOT_PERFORMED" in codes
+    assert not has_blocking_flag(validate(make_fields()))  # INFO, never blocking
+
+
 def test_missing_legal_name_is_blocking():
     flags = validate(make_fields(legal_name=_field(None, confidence=0.0)))
     codes = [f.code for f in flags]

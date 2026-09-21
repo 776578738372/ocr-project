@@ -48,7 +48,7 @@ a different FSM path (see `eval/manifest.json` for the full list with expected o
 
 ```bash
 python eval/run_eval.py   # 9 scenarios, decision-level + field-level checks, plain-text report
-python -m pytest -q       # 18 directional unit tests: classifier routing, validation rules, matching logic
+python -m pytest -q       # 20 directional unit tests: classifier routing, validation rules, matching logic
 ```
 
 ## Activating the real vision-model path (optional)
@@ -62,6 +62,33 @@ automatically, no code changes:
 export ANTHROPIC_API_KEY=sk-...
 pip install anthropic
 ```
+
+## Optional HTTP interface
+
+The CLI above is the primary entry point — the brief lists a production REST server under "what
+we are not asking you to build," and a CLI is what it asks for. `src/w9_onboarding/api.py` is a
+minimal addition on top of that (no auth, no persistence, no deployment config) showing the same
+contract works over a plain upload endpoint. It's a thin adapter with zero duplicated logic: every
+request calls the exact same `pipeline.run_pipeline` function the CLI calls, against the same
+CSV-based supplier master format the brief specifies for this exercise (no database involved).
+
+```bash
+pip install fastapi uvicorn python-multipart
+uvicorn w9_onboarding.api:app --reload --port 8000
+
+curl -X POST http://localhost:8000/v1/w9/onboard \
+  -F "tenant_id=tenant_pairsoft_042" \
+  -F "file=@data/sample_w9s/clean_w9_acme.pdf"
+```
+
+Tenant-to-supplier-master resolution is a CSV-per-tenant lookup under `data/tenants/<tenant_id>.csv`
+— the same CSV format the CLI takes via `--supplier-master`, just resolved by `tenant_id` instead of
+a path argument. An invalid/corrupted document still returns HTTP 200 with
+`decision.action: "REJECTED"`, since that's a documented contract outcome, not a server error; HTTP
+error codes are reserved for things outside the contract (unknown tenant → 404, malformed request →
+400/422). Verified end-to-end: all 8 scenario types (clean match, new supplier, TIN hijack, unsigned
+form, banking-change override, invalid file, scanned/VLM-mock path, unknown tenant) produce results
+identical to the CLI.
 
 ## Design decisions and tradeoffs
 
@@ -85,6 +112,16 @@ pip install anthropic
 - **Banking/routing changes always force human review**, independent of name-match confidence — see
   `matching/scoring.py`. A high name-similarity score should never be able to paper over a changed
   payment destination.
+- **TIN Matching / OFAC screening are mock providers wired into the real pipeline, not just prose.**
+  `validation/compliance.py` has no live IRS/sanctions integration — it honestly reports "not
+  checked" (`INFO_TIN_MATCHING_NOT_PERFORMED` / `INFO_OFAC_SCREENING_NOT_PERFORMED`) on every
+  response rather than omitting the check or faking a clean result. Same pattern as
+  `MockVLMExtractor`: swapping in a real provider is a new class behind the same interface.
+- **Name-similarity scoring normalizes case/punctuation before comparing.** `rapidfuzz` does not do
+  this by default: without it, the case study's own duplicate example ("ACME CORPORATION INC" vs
+  "Acme Corporation") scored ~0.24 instead of ~0.89, which would have escalated a clean match as a
+  possible TIN hijack. Fixed via `rapidfuzz.utils.default_process`; see `tests/test_matching.py`'s
+  case-insensitivity regression test and `docs/design_doc.md` §4 for how this was found.
 
 ## What I deferred, and why
 

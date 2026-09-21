@@ -116,6 +116,8 @@ This is the part of the system that actually implements "Know Your Supplier," an
 
 **Change management, generally:** every `UPDATE_EXISTING` decision carries `field_diffs` — what specifically differs between the incoming document and the record on file — so the downstream consumer (and any human reviewer) sees *what* would change, not just *that* something matched.
 
+**A bug found while testing directly against the case study's own example:** name-similarity scoring must normalize case and punctuation *before* fuzzy comparison — `rapidfuzz` does not do this by default. Without it, "ACME CORPORATION INC" vs "Acme Corporation" (the exact duplicate-naming example the brief gives) scored ~0.24 instead of ~0.89, which would have silently failed to recognize the duplicate — or worse, on the TIN-match branch, incorrectly escalated a clean match as a possible TIN hijack purely from case differences. Fixed by applying `rapidfuzz.utils.default_process` before scoring (`matching/scoring.py`). The original fuzzy-matching unit tests in `tests/test_matching.py` used same-case strings throughout, so they didn't catch this — a gap in the original test design, not just the original code; a case-insensitivity regression test was added alongside the fix.
+
 ## 5. API contract and quality signal
 
 Full schema: `contracts/schema.py`. Two decisions worth stating explicitly, because a consumer building against this without asking questions needs to know them:
@@ -185,12 +187,13 @@ At the stated volume (20K–100K docs/month) and assuming roughly 70–80% of tr
 | Payment-redirection fraud pattern (clean match, changed bank details) | **Handled** | Independent override, can't be papered over by a good name-match score. |
 | Scanned/photo input | **Handled**, extraction quality gated on a real API key being configured | Routes correctly; degrades honestly to human review when unconfigured rather than guessing. |
 | 2018 vs. 2024 form revision (Line 3b) | **Handled** | Nullable field, not required; absence isn't penalized. |
-| Duplicate-name variants ("Acme Corp" vs "ACME CORPORATION INC") | **Handled** | Business-suffix-stripping normalizer feeds the blocking key. |
+| Duplicate-name variants ("Acme Corp" vs "ACME CORPORATION INC") | **Handled, with a known threshold gap** | Business-suffix-stripping normalizer feeds the blocking key, and name comparison is case/punctuation-normalized (see below). But on the no-TIN-match path, a composite score that's plausible-but-not-certain (roughly 0.5–0.85 — e.g. "Acme Corp" alone against a matching address scores ~0.83) falls straight through to `CREATE_NEW` rather than a middle "possible duplicate" review band, because the FSM as specified has only two outcomes here (`FUZZY_HIGH → MATCHED_EXIST` or else `CREATE_NEW`). This was a deliberate call, not an oversight: adding a third outcome changes the FSM's shape, and the two-outcome version was verified end-to-end against the case study's own duplicate-naming examples (§9) before deciding not to expand it. A later dedup/cleanup pass on `CREATE_NEW` records is the intended mitigation, not a real-time third branch. |
 | Multiple tax-classification boxes checked | **Handled** | Flagged as `WARN_TAX_CLASSIFICATION_AMBIGUOUS`, not silently resolved to the first match. |
 | Hand-marked checkboxes on an otherwise-digital PDF | **Deferred** | Would need bounding-box/vision analysis layered onto a text-based PDF — routed to `[2B]` only if the classifier's text-density signal happens to catch it; a PDF that's mostly digital text with one hand-drawn mark could slip through `[2A]` and misread that one checkbox. Noted as a real gap, not silently absorbed. |
 | Exemption codes (Line 4), account numbers (Line 7) | **Deferred** | Brief's own reference material: "usually blank for typical business suppliers." |
 | Non-US suppliers / W-8 series as a first-class flow | **Deferred**, by explicit scope | Brief states US-only; W-8 detection here is a validation flag, not a parallel pipeline. |
-| IRS TIN Matching, OFAC/sanctions screening, USPS address verification | **Deferred to design-only** (§6 covers integration points) | Three more external services to mock would dilute engineering time better spent on the core extraction/matching slice the brief asks to prioritize. |
+| IRS TIN Matching, OFAC/sanctions screening | **Mock provider wired into the pipeline** (`validation/compliance.py`), real integration deferred | The integration point is real code, not just prose: every response's `validation_flags` includes `INFO_TIN_MATCHING_NOT_PERFORMED` / `INFO_OFAC_SCREENING_NOT_PERFORMED`, honestly reporting these checks didn't run rather than omitting them or faking a clean result. Swapping in a real IRS e-Services / sanctions-screening client is a new class behind the same two-method interface — no pipeline changes. |
+| USPS address verification | **Deferred to design-only** (§6 covers integration points) | One more external service to mock would dilute engineering time better spent on the core extraction/matching slice; basic format validation (state code, zip shape) already runs for real in `validation/rules.py`. |
 
 ## 9. What's real vs. what's a stub (honesty check)
 
@@ -202,5 +205,6 @@ At the stated volume (20K–100K docs/month) and assuming roughly 70–80% of tr
 | Validation rules | Real |
 | Matching (blocking + scoring + override) | Real, in-memory (production would push blocking to the supplier master's own search API — see §4) |
 | Contract / schema | Real, locked, versioned (`api_version`) |
-| TIN Matching / OFAC / address verification | Design-only, not implemented |
+| TIN Matching / OFAC screening | Mock provider, wired into every response (see §8) — not a real IRS/sanctions integration |
+| USPS address verification | Design-only, not implemented at all |
 | Persistence, auth, downstream supplier-master writes | Explicitly out of scope per the brief |

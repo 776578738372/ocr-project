@@ -62,6 +62,18 @@ def test_normalize_business_name_strips_suffixes_and_punctuation():
     assert normalize_business_name("Acme, Corp.") == normalize_business_name("Acme Corporation")
 
 
+def test_tin_match_with_all_caps_name_is_not_a_false_mismatch():
+    # Regression test: rapidfuzz does not lowercase by default. Without
+    # normalizing case before scoring, "ACME CORPORATION INC" against
+    # "Acme Corporation" on file scored ~0.24 instead of ~0.89 and would
+    # have incorrectly escalated a clean match as a possible TIN hijack.
+    fields = make_fields("ACME CORPORATION INC", "27-4821093")
+    result = match_supplier(fields, make_supplier_df())
+    assert result.action == DecisionAction.UPDATE_EXISTING
+    assert result.matched_supplier_id == "sup_00417"
+    assert result.match_evidence.name_similarity_score >= 0.70
+
+
 def test_exact_tin_and_name_match_updates_existing():
     fields = make_fields("Acme Corporation", "27-4821093")
     result = match_supplier(fields, make_supplier_df())

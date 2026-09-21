@@ -16,6 +16,13 @@ Two kinds of checks:
 from __future__ import annotations
 
 from w9_onboarding.contracts.schema import ExtractedFields, ExtractionPath, Severity, ValidationFlag
+from w9_onboarding.validation.compliance import MockOfacScreeningProvider, MockTinMatchingProvider
+
+# MOCK: see validation/compliance.py's docstring -- these two calls are real
+# wiring (they run on every request and their result is real), but the
+# providers themselves are honest stand-ins with no live IRS/OFAC integration.
+_tin_matching_provider = MockTinMatchingProvider()
+_ofac_provider = MockOfacScreeningProvider()
 
 _VALID_STATES = {
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL",
@@ -114,6 +121,26 @@ def validate(fields: ExtractedFields) -> list[ValidationFlag]:
                 f"{LOW_CONFIDENCE_THRESHOLD} review threshold.",
                 field_name,
             ))
+
+    # MOCK: see the module-level comment above and validation/compliance.py.
+    # Real KYS ("Know Your Supplier") per the case study brief includes IRS
+    # TIN Matching and OFAC/sanctions screening -- neither is implemented for
+    # real here, so we say so explicitly (INFO, not blocking) rather than
+    # silently omitting the check or faking a "clean" result.
+    tin_match_result = _tin_matching_provider.check(fields.legal_name.value, fields.tin.value_token)
+    if not tin_match_result.checked:
+        flags.append(_flag(
+            "INFO_TIN_MATCHING_NOT_PERFORMED", Severity.INFO,
+            f"IRS TIN Matching was not performed ({tin_match_result.provider}); "
+            "name/TIN combination is unverified against IRS records.",
+        ))
+
+    ofac_result = _ofac_provider.screen(fields.legal_name.value)
+    if not ofac_result.checked:
+        flags.append(_flag(
+            "INFO_OFAC_SCREENING_NOT_PERFORMED", Severity.INFO,
+            f"OFAC/sanctions screening was not performed ({ofac_result.provider}).",
+        ))
 
     return flags
 

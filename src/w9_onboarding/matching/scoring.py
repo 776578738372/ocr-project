@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pandas as pd
-from rapidfuzz import fuzz
+from rapidfuzz import fuzz, utils as fuzz_utils
 
 from w9_onboarding.contracts.schema import (
     DecisionAction,
@@ -54,7 +54,12 @@ class MatchResult:
 def _similarity(a: str | None, b: str | None) -> float:
     if not a or not b:
         return 0.0
-    return fuzz.token_sort_ratio(a, b) / 100.0
+    # rapidfuzz does NOT lowercase/normalize by default -- without this
+    # processor, "ACME CORPORATION INC" vs "Acme Corporation" (the case
+    # study's own duplicate-detection example) scores ~0.24 instead of
+    # ~0.89, purely from case differences. default_process lowercases,
+    # strips punctuation, and collapses whitespace before comparing.
+    return fuzz.token_sort_ratio(a, b, processor=fuzz_utils.default_process) / 100.0
 
 
 def _address_similarity(fields: ExtractedFields, candidate: pd.Series) -> float:

@@ -9,3 +9,9 @@ pytest==8.3.3
 # Optional: only needed if you activate the real VLM extractor with a live API key.
 # The pipeline runs end-to-end without this installed (MockVLMExtractor is the default).
 anthropic==0.39.0
+
+# Optional: only needed for the HTTP interface (src/w9_onboarding/api.py). The CLI
+# above is the primary entry point and needs none of this -- see README.
+fastapi==0.115.0
+uvicorn==0.31.0
+python-multipart==0.0.12
