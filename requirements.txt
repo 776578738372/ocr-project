@@ -11,8 +11,9 @@ pytest==8.3.3
 anthropic==0.39.0
 openai==3.17.0
 
-# Optional: only needed for the HTTP interface (src/w9_onboarding/api.py). The CLI
-# above is the primary entry point and needs none of this -- see README.
+# Optional: only needed for the HTTP interface (src/main.py). The CLI above
+# is the primary entry point and needs none of this -- see README.
 fastapi==0.115.0
 uvicorn==0.31.0
 python-multipart==0.0.12
+python-dotenv==1.0.1

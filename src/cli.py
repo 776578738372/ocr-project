@@ -5,7 +5,7 @@ optional HTTP interface).
 
 Run from the repo root:
     python src/cli.py \\
-        --file samples/clean_w9_acme.pdf \\
+        --file samples/w9_supplier_1_typed.pdf \\
         --tenant-id tenant_pairsoft_042 \\
         --supplier-master data/supplier_master.csv
 

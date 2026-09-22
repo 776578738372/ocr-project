@@ -118,6 +118,13 @@ export OPENAI_API_KEY=sk-...       # GPT-4o vision
 samples in `samples/`; see "What I'd build next" for a real, honest finding from that testing (vision
 extraction isn't perfectly reliable, and the design already accounts for that).
 
+For the CLI, `export` the key in the same shell before running it. For the HTTP interface
+(`src/main.py`), a `.env` file in the repo root is loaded automatically (`python-dotenv`) — this
+matters in practice: a key that's only `export`ed in one terminal is invisible to a `uvicorn` server
+started from a different one, which silently falls back to the mock rather than erroring, so every
+image field would show "not found" for a reason that isn't obvious from the output alone. A `.env`
+file works everywhere regardless of which shell started which process.
+
 ## Optional HTTP interface
 
 The CLI above is the primary entry point — the brief lists a production REST server under "what

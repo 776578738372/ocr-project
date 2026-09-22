@@ -25,13 +25,21 @@ Run from the repo root (--app-dir puts src/ on the import path without
 needing to cd into it, which matters since decision/schemas/matching/etc.
 are flat top-level packages under src/, not nested under a "src" package):
 
-    pip install fastapi uvicorn python-multipart
+    pip install fastapi uvicorn python-multipart python-dotenv
     uvicorn main:app --app-dir src --reload --port 8000
+
+A .env file in the repo root (if present) is loaded automatically below, so
+ANTHROPIC_API_KEY / OPENAI_API_KEY set there activate the real VLM path
+without needing `export` in whatever shell happens to start uvicorn --
+this bit us once already (server started in a terminal that never ran
+`export`, silently fell back to the mock, every image field showed "not
+found" in the demo UI even though the same key worked fine from a shell
+that had exported it).
 
 Try it:
     curl -X POST http://localhost:8000/v1/w9/onboard \
       -F "tenant_id=tenant_pairsoft_042" \
-      -F "file=@samples/clean_w9_acme.pdf"
+      -F "file=@samples/w9_supplier_1_typed.pdf"
 """
 
 from __future__ import annotations
@@ -40,8 +48,11 @@ import json
 import os
 
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
+
+load_dotenv()
 
 from decision.pipeline import run_pipeline
 from matching.supplier_master import load_supplier_master
