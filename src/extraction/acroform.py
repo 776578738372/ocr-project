@@ -79,9 +79,21 @@ def _is_checked(value: str | None) -> bool:
 
 def looks_like_this_template(field_values: dict[str, str]) -> bool:
     """True if the PDF's widgets match the official IRS fillable template's
-    known field names closely enough to trust this extractor over falling
-    back to the text-regex path."""
-    return _F["legal_name"] in field_values or _F["ein_1"] in field_values
+    known field names AND at least one of them is actually populated --
+    matching field *names* alone isn't enough. A real gap found via testing:
+    a "flattened" copy of this same template can have these exact field
+    names present with every value empty (the real values got baked into
+    the text stream instead, at extraction/flattened_form.py's expense) --
+    without checking for a populated value here, that document would
+    wrongly commit to reading empty widgets and return everything null,
+    instead of falling through to a path that can actually find the data."""
+    if _F["legal_name"] not in field_values and _F["ein_1"] not in field_values:
+        return False
+    return bool(
+        field_values.get(_F["legal_name"], "").strip()
+        or field_values.get(_F["ein_1"], "").strip()
+        or field_values.get(_F["ssn_1"], "").strip()
+    )
 
 
 def extract_from_widgets(field_values: dict[str, str]) -> ExtractedFields:

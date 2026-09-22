@@ -1,12 +1,18 @@
 """STATUS: REAL. End-to-end scenario coverage for the decision engine.
 
-Not exhaustive edge-case fuzzing -- nine scenarios chosen to exercise every
-terminal FSM state at least once via a distinct path (clean update, new
-supplier, TIN hijack, unsigned form, wrong form, invalid file, scanned/mock
-VLM x2, banking-change override), against data/evaluation_cases.json. Ground
-truth is known because scripts/generate_sample_data.py generated the sample
-documents itself -- see that script and docs/design_doc.md for the scenario
-table.
+Real documents, not synthetic fixtures: 2 genuine W-9 PDFs (a "flattened"
+fillable-PDF pattern -- see extraction/flattened_form.py) plus 4 real
+photographed/handwritten W-9s requiring live vision-model extraction,
+against data/evaluation_cases.json. Three scenarios, matching how a real
+supplier master behaves: documents that match an existing supplier cleanly,
+documents for a supplier not on file at all, and documents for an existing
+supplier whose address changed since the record was created.
+
+The 4 vision-model cases are marked `"requires_vlm_key": true` in the
+manifest and SKIP (not fail) when neither ANTHROPIC_API_KEY nor
+OPENAI_API_KEY is set -- consistent with the rest of this project never
+requiring a paid API key just to run the test suite. Set one of those env
+vars to actually exercise live extraction.
 
 This is the answer to the case study's "some form of evaluation, even a
 lightweight one" ask: run `pytest tests/test_decision.py -v` for the
@@ -28,6 +34,8 @@ from schemas.schema import SecondaryPayload
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CASES_PATH = os.path.join(REPO_ROOT, "data", "evaluation_cases.json")
 SUPPLIER_MASTER_PATH = os.path.join(REPO_ROOT, "data", "supplier_master.csv")
+
+HAS_VLM_KEY = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY"))
 
 with open(CASES_PATH) as _f:
     CASES = json.load(_f)
@@ -63,6 +71,9 @@ def _run_case(case: dict):
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
 def test_scenario_decision(case):
+    if case.get("requires_vlm_key") and not HAS_VLM_KEY:
+        pytest.skip("no ANTHROPIC_API_KEY/OPENAI_API_KEY set -- this case needs live vision-model extraction")
+
     response = _run_case(case)
     expected = case["expected"]
 
@@ -108,6 +119,8 @@ def test_field_level_accuracy_report(capsys):
     """
     total, passed = 0, 0
     for case in CASES:
+        if case.get("requires_vlm_key") and not HAS_VLM_KEY:
+            continue
         response = _run_case(case)
         if response.extracted_fields is None:
             continue

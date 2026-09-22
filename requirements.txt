@@ -6,9 +6,10 @@ pandas==2.2.3
 pillow==10.4.0
 pytest==8.3.3
 
-# Optional: only needed if you activate the real VLM extractor with a live API key.
-# The pipeline runs end-to-end without this installed (MockVLMExtractor is the default).
+# Optional: only needed if you activate a real VLM extractor with a live API key.
+# The pipeline runs end-to-end without either installed (MockVLMExtractor is the default).
 anthropic==0.39.0
+openai==3.17.0
 
 # Optional: only needed for the HTTP interface (src/w9_onboarding/api.py). The CLI
 # above is the primary entry point and needs none of this -- see README.

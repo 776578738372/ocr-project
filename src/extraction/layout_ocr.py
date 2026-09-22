@@ -38,6 +38,7 @@ import re
 import pymupdf as fitz
 
 from extraction.acroform import extract_from_widgets, looks_like_this_template
+from extraction.flattened_form import extract_from_flattened_tail, looks_like_flattened_tail
 from schemas.schema import (
     Address,
     Certification,
@@ -119,7 +120,7 @@ class LayoutOCRExtractor:
         finally:
             doc.close()
 
-        return ExtractedFields(
+        fields = ExtractedFields(
             legal_name=self._legal_name(text),
             dba_name=self._dba_name(text),
             tax_classification=self._tax_classification(text),
@@ -127,6 +128,16 @@ class LayoutOCRExtractor:
             tin=self._tin(text),
             certification=self._certification(text),
         )
+
+        # Third pattern (extraction/flattened_form.py): label-anchored regex
+        # found nothing, but the text has the shape of a flattened AcroForm
+        # (values appended after the page footer, disconnected from labels).
+        if not fields.legal_name.value and looks_like_flattened_tail(text):
+            flattened = extract_from_flattened_tail(text)
+            if flattened is not None:
+                return flattened
+
+        return fields
 
     def _legal_name(self, text: str) -> ExtractedValue:
         m = _LEGAL_NAME_RE.search(text)

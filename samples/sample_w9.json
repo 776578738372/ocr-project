@@ -1,9 +1,9 @@
 {
   "api_version": "2026-09-01",
-  "request_id": "req_54ebc0a082ae",
+  "request_id": "req_f2bc6e698835",
   "tenant_id": "tenant_pairsoft_042",
-  "received_at": "2026-09-21T09:40:29.944196Z",
-  "processing_time_ms": 8,
+  "received_at": "2026-09-22T18:24:46.638835Z",
+  "processing_time_ms": 38,
   "processing_metadata": {
     "extraction_path": "layout_ocr",
     "routing_signal": "pdf_embedded_text",
@@ -27,90 +27,84 @@
   },
   "extracted_fields": {
     "legal_name": {
-      "value": "Acme Corporation",
-      "confidence": 0.97,
+      "value": "Apex Industrial Supplies LLC",
+      "confidence": 0.9,
       "source": "layout_ocr",
-      "evidence": "1 Name (as shown on your income tax return): Acme Corporation"
+      "evidence": "flattened-tail position 0"
     },
     "dba_name": {
-      "value": null,
-      "confidence": 0.97,
+      "value": "Apex Industrial Supply",
+      "confidence": 0.9,
       "source": "layout_ocr",
-      "evidence": "2 Business name/disregarded entity name, if different from above: "
+      "evidence": "flattened-tail position 1"
     },
     "tax_classification": {
-      "value": "c_corporation",
-      "confidence": 0.97,
+      "value": null,
+      "confidence": 0.0,
       "source": "layout_ocr",
-      "evidence": "[X] C Corporation",
+      "evidence": "tax classification not determinable from flattened text without positional/bounding-box analysis",
       "llc_subclass": null,
-      "foreign_partner_indicator": false,
+      "foreign_partner_indicator": null,
       "other_description": null
     },
     "address": {
       "street": {
-        "value": "1200 Industrial Pkwy",
-        "confidence": 0.97,
+        "value": "2450 West Commerce Street, Suite 310",
+        "confidence": 0.9,
         "source": "layout_ocr",
-        "evidence": "5 Address (number, street, and apt. or suite no.): 1200 Industrial Pkwy"
+        "evidence": "flattened-tail, line before city/state/zip"
       },
       "city": {
-        "value": "Columbus",
-        "confidence": 0.97,
+        "value": "Dallas",
+        "confidence": 0.9,
         "source": "layout_ocr",
-        "evidence": "6 City, state, and ZIP code: Columbus, OH 43215"
+        "evidence": "Dallas, TX 75212"
       },
       "state": {
-        "value": "OH",
-        "confidence": 0.97,
+        "value": "TX",
+        "confidence": 0.9,
         "source": "layout_ocr",
-        "evidence": "6 City, state, and ZIP code: Columbus, OH 43215"
+        "evidence": "Dallas, TX 75212"
       },
       "zip": {
-        "value": "43215",
-        "confidence": 0.97,
+        "value": "75212",
+        "confidence": 0.9,
         "source": "layout_ocr",
-        "evidence": "6 City, state, and ZIP code: Columbus, OH 43215"
+        "evidence": "Dallas, TX 75212"
       }
     },
     "tin": {
       "type": "EIN",
-      "value_masked": "xx-xxx1093",
-      "value_token": "tin_tok_631ed2dc2257",
+      "value_masked": "xx-xxx6789",
+      "value_token": "tin_tok_15e2b0d3c338",
       "format_valid": true,
-      "confidence": 0.97,
+      "confidence": 0.9,
       "source": "layout_ocr"
     },
     "certification": {
       "signed": true,
       "signature_present": true,
-      "date": "09/15/2026",
-      "confidence": 0.97
+      "date": "09/22/2026",
+      "confidence": 0.9
     }
   },
   "match_evidence": {
     "candidates_evaluated": 1,
     "tin_match": true,
-    "matched_supplier_id": "sup_00417",
+    "matched_supplier_id": "sup_20001",
     "name_similarity_score": 1.0,
     "fuzzy_algorithm": "token_sort_ratio",
-    "field_diffs": [
-      {
-        "field": "address.street",
-        "existing": "1150 Industrial Pkwy",
-        "incoming": "1200 Industrial Pkwy"
-      }
-    ],
+    "field_diffs": [],
     "banking_change_detected": false
   },
   "decision": {
     "action": "UPDATE_EXISTING",
-    "matched_supplier_id": "sup_00417",
+    "matched_supplier_id": "sup_20001",
     "overall_match_confidence": 1.0,
     "decision_reasoning": [
       {
         "code": "RULE_TIN_EXACT_MATCH",
-        "message": "Extracted TIN matches supplier sup_00417 on file."
+        "message": "Extracted TIN matches supplier sup_20001 on file."
       },
       {
         "code": "RULE_NAME_SIMILARITY_HIGH",
@@ -119,6 +113,12 @@
     ]
   },
   "validation_flags": [
+    {
+      "code": "WARN_TAX_CLASSIFICATION_UNCLEAR",
+      "severity": "WARNING",
+      "field": "tax_classification",
+      "message": "No federal tax classification checkbox could be identified."
+    },
     {
       "code": "INFO_TIN_MATCHING_NOT_PERFORMED",
       "severity": "INFO",

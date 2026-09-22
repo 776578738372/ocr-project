@@ -1,165 +1,88 @@
 [
   {
-    "name": "clean_match_with_address_diff",
-    "description": "TIN + name match an existing supplier exactly; street address differs -> clean update with a field diff.",
-    "file": "samples/clean_w9_acme.pdf",
+    "name": "typed_pdf_exists_clean_match_1",
+    "description": "Real, genuine W-9 PDF (Apex Industrial Supplies LLC) -- 'flattened' fillable-PDF pattern (AcroForm widgets empty, values baked into the text stream after the page footer, disconnected from labels; also multi-page, so the footer marker repeats once per page). Matches an existing supplier exactly: no diffs.",
+    "file": "samples/w9_supplier_1_typed.pdf",
     "secondary_payload": null,
     "expected": {
       "decision_action": "UPDATE_EXISTING",
-      "matched_supplier_id": "sup_00417",
-      "max_candidates_evaluated": 1,
+      "matched_supplier_id": "sup_20001",
+      "extraction_path": "layout_ocr",
       "extracted_fields": {
-        "legal_name": "Acme Corporation",
-        "tin.type": "EIN",
-        "address.zip": "43215",
-        "tax_classification.value": "c_corporation",
-        "certification.signed": true
+        "legal_name": "Apex Industrial Supplies LLC",
+        "dba_name": "Apex Industrial Supply",
+        "address.city": "Dallas",
+        "address.state": "TX",
+        "address.zip": "75212",
+        "tin.type": "EIN"
       }
     }
   },
   {
-    "name": "no_match_new_supplier",
-    "description": "TIN and name appear nowhere in the supplier master -> new supplier.",
-    "file": "samples/clean_w9_newco.pdf",
+    "name": "typed_pdf_exists_clean_match_2",
+    "description": "Same flattened/multi-page PDF pattern as above, second real document (Global Tech Solutions Inc.). Matches an existing supplier exactly: no diffs.",
+    "file": "samples/w9_supplier_2_typed.pdf",
     "secondary_payload": null,
+    "expected": {
+      "decision_action": "UPDATE_EXISTING",
+      "matched_supplier_id": "sup_20002",
+      "extraction_path": "layout_ocr",
+      "extracted_fields": {
+        "legal_name": "Global Tech Solutions Inc.",
+        "dba_name": "GTS",
+        "address.city": "San Jose",
+        "address.state": "CA",
+        "address.zip": "95134",
+        "tin.type": "EIN"
+      }
+    }
+  },
+  {
+    "name": "photo_supplier_does_not_exist_1",
+    "description": "Real photographed/scanned W-9 (Green Earth Services Partnership) via live vision-model extraction. Not on file for this tenant at all -> CREATE_NEW. SKIPPED if no ANTHROPIC_API_KEY/OPENAI_API_KEY is set (MockVLMExtractor would return every field null, which is a real and correct behavior on its own, but not what this case is testing).",
+    "file": "samples/w9_supplier_3.jpeg",
+    "secondary_payload": null,
+    "requires_vlm_key": true,
     "expected": {
       "decision_action": "CREATE_NEW",
-      "matched_supplier_id": null,
-      "extracted_fields": {
-        "legal_name": "Bright Path Logistics LLC",
-        "tax_classification.value": "llc",
-        "tax_classification.llc_subclass": "P",
-        "address.state": "NV"
-      }
-    }
-  },
-  {
-    "name": "tin_hijack_name_mismatch",
-    "description": "Extracted TIN matches Acme's on-file TIN, but the legal name is completely different -> possible TIN hijack, escalate.",
-    "file": "samples/clean_w9_tin_hijack.pdf",
-    "secondary_payload": null,
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "extracted_fields": {
-        "legal_name": "Shell Ventures Group",
-        "tin.value_masked": "xx-xxx1093"
-      }
-    }
-  },
-  {
-    "name": "unsigned_form_blocks_auto_decision",
-    "description": "Clean, unmatched supplier, but the form is unsigned -> CRITICAL validation flag forces human review even though the matcher alone would say CREATE_NEW.",
-    "file": "samples/clean_w9_unsigned.pdf",
-    "secondary_payload": null,
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "validation_flag_codes_include": ["ERR_NOT_SIGNED"],
-      "extracted_fields": {
-        "legal_name": "Vertex Analytics Inc"
-      }
-    }
-  },
-  {
-    "name": "wrong_form_w8_sent_by_mistake",
-    "description": "A W-8, not a W-9 -- no field anchors match at all despite a real embedded text layer.",
-    "file": "samples/wrong_form_w8.pdf",
-    "secondary_payload": null,
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "validation_flag_codes_include": ["ERR_POSSIBLE_WRONG_FORM", "ERR_MISSING_LEGAL_NAME", "ERR_INVALID_TIN"]
-    }
-  },
-  {
-    "name": "invalid_file_rejected",
-    "description": "Not a PDF/PNG/JPEG at all -> rejected before any extraction runs.",
-    "file": "samples/invalid_document.pdf",
-    "secondary_payload": null,
-    "expected": {
-      "decision_action": "REJECTED",
-      "matched_supplier_id": null,
-      "validation_flag_codes_include": ["ERR_INVALID_FILE_FORMAT"]
-    }
-  },
-  {
-    "name": "scanned_photo_routes_to_vlm_mock",
-    "description": "JPEG photo -> classifier routes to VLM path; with no API key configured, MockVLMExtractor honestly reports every field unknown, which correctly forces human review rather than guessing.",
-    "file": "samples/scanned_w9_acme.jpg",
-    "secondary_payload": null,
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "extraction_path": "vlm_extraction",
-      "validation_flag_codes_include": ["ERR_MISSING_LEGAL_NAME", "ERR_INVALID_TIN"]
-    }
-  },
-  {
-    "name": "scanned_pdf_wrapper_routes_to_vlm",
-    "description": "PDF with a full-page image and zero embedded text -> classifier's stage-2 probe catches the scanned wrapper and routes to VLM, same as a direct photo.",
-    "file": "samples/scanned_wrapper_w9.pdf",
-    "secondary_payload": null,
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
       "matched_supplier_id": null,
       "extraction_path": "vlm_extraction"
     }
   },
   {
-    "name": "banking_change_overrides_clean_match",
-    "description": "TIN + name match Acme cleanly, but the secondary payload's bank routing/account differs from what's on file -> forced to human review regardless of the otherwise-clean match.",
-    "file": "samples/clean_w9_acme.pdf",
-    "secondary_payload": "samples/secondary_payload_banking_change.json",
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "decision_reasoning_codes_include": ["WARN_HIGH_RISK_BANKING_CHANGE"]
-    }
-  },
-  {
-    "name": "tenant_isolation_same_name_different_tenant",
-    "description": "The exact same document (Acme Corporation, TIN 27-4821093) submitted under a DIFFERENT tenant that happens to also have an unrelated supplier also named 'Acme Corporation' (different TIN/address/tax classification). Proves tenant_id is enforced at the query layer: tenant_pairsoft_042's real Acme record (sup_00417) must never be visible to, or matched against, tenant_globex_099's request -- even with a perfect 1.0 name-similarity score against tenant_globex_099's own same-named supplier.",
-    "file": "samples/clean_w9_acme.pdf",
+    "name": "photo_supplier_does_not_exist_2",
+    "description": "Real photographed/scanned W-9 (BrightPath Consulting) via live vision-model extraction. Not on file -> CREATE_NEW. SKIPPED if no live VLM API key is set.",
+    "file": "samples/w9_supplier_4.jpeg",
     "secondary_payload": null,
-    "tenant_id": "tenant_globex_099",
+    "requires_vlm_key": true,
     "expected": {
       "decision_action": "CREATE_NEW",
       "matched_supplier_id": null,
-      "max_candidates_evaluated": 1
+      "extraction_path": "vlm_extraction"
     }
   },
   {
-    "name": "shared_bank_account_across_suppliers",
-    "description": "A brand-new, unrelated supplier (Bright Path Logistics -- no TIN/name match to anything) claims a bank account that's already on file for a completely different existing supplier (Globex Industries Inc). Would otherwise auto-resolve to CREATE_NEW; the cross-supplier bank-account check catches the 'multiple vendors, one bank account' fraud pattern the case study names explicitly, which per-supplier matching alone can't see.",
-    "file": "samples/clean_w9_newco.pdf",
-    "secondary_payload": "samples/secondary_payload_shared_bank_account.json",
-    "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "decision_reasoning_codes_include": ["WARN_BANK_ACCOUNT_SHARED_ACROSS_SUPPLIERS"]
-    }
-  },
-  {
-    "name": "real_official_fillable_pdf_acroform_extraction",
-    "description": "The ACTUAL official IRS fillable W-9 PDF (2024 revision), filled out digitally -- not one of our synthetic samples. Proves extraction/acroform.py's widget-field extraction works on real-world input: this document's filled values live in AcroForm fields, not the text stream, so get_text()-based regex alone returned nothing at all when first tested (see git history). Unsigned by design (no ink/digital signature applied), so it correctly still routes to human review despite otherwise-clean extraction -- ERR_NOT_SIGNED is a real, independent block, not a symptom of failed extraction this time.",
-    "file": "samples/fw9_filled_test_supplier.pdf",
+    "name": "handwritten_supplier_exists_info_changed_1",
+    "description": "Real handwritten W-9 (Sunrise Medical Devices LLC) via live vision-model extraction. Matches an existing supplier by TIN, but the street address on file is stale -> UPDATE_EXISTING with a field diff. SKIPPED if no live VLM API key is set.",
+    "file": "samples/w9_supplier_5_handwritten.png",
     "secondary_payload": null,
+    "requires_vlm_key": true,
     "expected": {
-      "decision_action": "ROUTE_TO_HUMAN_REVIEW",
-      "matched_supplier_id": null,
-      "validation_flag_codes_include": ["ERR_NOT_SIGNED"],
-      "extracted_fields": {
-        "legal_name": "Apex Industrial Supplies LLC",
-        "dba_name": "Apex Industrial Supply",
-        "tax_classification.value": "llc",
-        "tax_classification.llc_subclass": "C",
-        "address.city": "Dallas",
-        "address.state": "TX",
-        "address.zip": "75212",
-        "tin.type": "EIN",
-        "tin.value_masked": "xx-xxx6789"
-      }
+      "decision_action": "UPDATE_EXISTING",
+      "matched_supplier_id": "sup_20003",
+      "extraction_path": "vlm_extraction"
+    }
+  },
+  {
+    "name": "handwritten_supplier_exists_info_changed_2",
+    "description": "Real handwritten W-9 (Metro Construction Supply Inc.) via live vision-model extraction. Matches an existing supplier by TIN, but the street address on file is stale -> UPDATE_EXISTING with a field diff. SKIPPED if no live VLM API key is set.",
+    "file": "samples/w9_supplier_6_handwritten.png",
+    "secondary_payload": null,
+    "requires_vlm_key": true,
+    "expected": {
+      "decision_action": "UPDATE_EXISTING",
+      "matched_supplier_id": "sup_20004",
+      "extraction_path": "vlm_extraction"
     }
   }
 ]

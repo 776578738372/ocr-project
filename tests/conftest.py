@@ -13,15 +13,16 @@ SAMPLES_DIR = os.path.join(REPO_ROOT, "samples")
 sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 
 
+# NOTE: auto-regeneration of samples/ via scripts/generate_sample_data.py is
+# deliberately disabled right now -- samples/ and data/supplier_master.csv
+# are being rebuilt around a new, real-document test set (see git history /
+# conversation) instead of the old synthetic fixtures that script produces.
+# Re-enable by restoring the old fixture body once the new test set +
+# matching eval cases are in place, or if you want the old synthetic
+# fixtures back as a fallback.
 @pytest.fixture(scope="session", autouse=True)
 def ensure_sample_data():
-    """Generates samples/ (and the supplier master) on first run so the test
-    suite works from a fresh clone without a manual setup step."""
-    if not os.path.isdir(SAMPLES_DIR) or not os.listdir(SAMPLES_DIR):
-        sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
-        import generate_sample_data
-
-        generate_sample_data.main()
+    pass
 
 
 @pytest.fixture

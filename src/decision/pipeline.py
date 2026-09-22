@@ -87,7 +87,9 @@ def run_pipeline(
         state_trace.append("VLM_EXTRACTION")
         extractor = get_vlm_extractor()
         is_mock = isinstance(extractor, MockVLMExtractor)
-        engine_versions["extractor"] = "vlm-mock-1.0" if is_mock else f"vlm-anthropic-{extractor._model}"
+        engine_versions["extractor"] = (
+            "vlm-mock-1.0" if is_mock else f"vlm-{type(extractor).__name__}-{extractor._model}"
+        )
         extraction_cost = _COST_VLM_MOCK if is_mock else _COST_VLM_LIVE
 
     fields = extractor.extract(file_bytes)

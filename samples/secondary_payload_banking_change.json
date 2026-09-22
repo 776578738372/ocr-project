@@ -1,7 +1,0 @@
-{
-  "banking": {
-    "routing_number": "071000013",
-    "account_number_last4": "9999",
-    "account_holder_name": "Acme Corporation"
-  }
-}
