@@ -191,6 +191,14 @@ reject).
   on AcroForm field *names* alone — a flattened PDF can have the right field names with every value
   empty, which would wrongly commit to reading nothing instead of falling through to a path that could
   actually find the data. See `tests/test_extraction.py`'s regression tests against the real files.
+- **Tax classification on the flattened pattern is resolved by checkbox position, not guessed.** The
+  flattened text has only a lone "X" with no label next to it — which of the 7 boxes it belongs to
+  can't be read from text alone. But the empty AcroForm widgets (that's *why* this fallback runs) still
+  have correct `.rect` positions, so the "X" word's bounding box (from `page.get_text("words")`) can be
+  matched to whichever checkbox widget is nearest. This caught a real case where guessing from the
+  entity name would have been wrong: "Global Tech Solutions **Inc.**" reads as an obvious C-corp guess,
+  but the box actually checked on the document is S-corp — see
+  `tests/test_extraction.py::test_flattened_tail_checkbox_position_beats_guessing_from_entity_name`.
 - **Confidence is derived, not self-reported.** For layout OCR, confidence reflects whether a label
   anchor matched and the value passed its own format check — not a model's opinion of itself.
 - **TIN never travels in plaintext past extraction.** `src/utils/security.py` is the one place raw

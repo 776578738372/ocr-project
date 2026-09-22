@@ -56,6 +56,24 @@ def test_flattened_multipage_pdf_extracts_correctly(samples_dir):
     assert fields.tin.value_masked == "xx-xxx6789"
     assert fields.certification.signed is True
     assert fields.certification.date == "09/22/2026"
+    # Tax classification: the flattened text alone has only a lone "X", no
+    # label context -- resolved via checkbox-widget position matching (see
+    # extraction/flattened_form.py). This document's LLC box is checked with
+    # subclass "C".
+    assert fields.tax_classification.value == "llc"
+    assert fields.tax_classification.llc_subclass == "C"
+
+
+def test_flattened_tail_checkbox_position_beats_guessing_from_entity_name(samples_dir):
+    # A second, more telling case for the same fix: this entity's name ends
+    # in "Inc.", which would tempt a name-based guess of "c_corporation" --
+    # the document's actual checked box, found only by checkbox-widget
+    # position matching, is S-corporation.
+    with open(os.path.join(samples_dir, "w9_supplier_2_typed.pdf"), "rb") as f:
+        fields = LayoutOCRExtractor().extract(f.read())
+
+    assert fields.legal_name.value == "Global Tech Solutions Inc."
+    assert fields.tax_classification.value == "s_corporation"
 
 
 def test_acroform_widget_detection_requires_a_populated_value(samples_dir):

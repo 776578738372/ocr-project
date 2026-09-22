@@ -1,7 +1,7 @@
 [
   {
     "name": "typed_pdf_exists_clean_match_1",
-    "description": "Real, genuine W-9 PDF (Apex Industrial Supplies LLC) -- 'flattened' fillable-PDF pattern (AcroForm widgets empty, values baked into the text stream after the page footer, disconnected from labels; also multi-page, so the footer marker repeats once per page). Matches an existing supplier exactly: no diffs.",
+    "description": "Real, genuine W-9 PDF (Apex Industrial Supplies LLC) -- 'flattened' fillable-PDF pattern (AcroForm widgets empty, values baked into the text stream after the page footer, disconnected from labels; also multi-page, so the footer marker repeats once per page). Tax classification (LLC + subclass C) is resolved via checkbox-widget position matching, not the flattened text alone -- see extraction/flattened_form.py. Matches an existing supplier exactly: no diffs.",
     "file": "samples/w9_supplier_1_typed.pdf",
     "secondary_payload": null,
     "expected": {
@@ -11,6 +11,8 @@
       "extracted_fields": {
         "legal_name": "Apex Industrial Supplies LLC",
         "dba_name": "Apex Industrial Supply",
+        "tax_classification.value": "llc",
+        "tax_classification.llc_subclass": "C",
         "address.city": "Dallas",
         "address.state": "TX",
         "address.zip": "75212",
@@ -20,7 +22,7 @@
   },
   {
     "name": "typed_pdf_exists_clean_match_2",
-    "description": "Same flattened/multi-page PDF pattern as above, second real document (Global Tech Solutions Inc.). Matches an existing supplier exactly: no diffs.",
+    "description": "Same flattened/multi-page PDF pattern as above, second real document (Global Tech Solutions Inc.). Tax classification is S-corporation -- deliberately worth asserting explicitly, since a plausible-looking guess from the entity name alone ('...Inc.' implying C-corp) would have been wrong; only the checkbox-position detection gets this right. Matches an existing supplier exactly: no diffs.",
     "file": "samples/w9_supplier_2_typed.pdf",
     "secondary_payload": null,
     "expected": {
@@ -30,6 +32,7 @@
       "extracted_fields": {
         "legal_name": "Global Tech Solutions Inc.",
         "dba_name": "GTS",
+        "tax_classification.value": "s_corporation",
         "address.city": "San Jose",
         "address.state": "CA",
         "address.zip": "95134",

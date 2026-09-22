@@ -117,27 +117,29 @@ class LayoutOCRExtractor:
                 return extract_from_widgets(field_values)
 
             text = "\n".join(page.get_text() for page in doc)
+
+            fields = ExtractedFields(
+                legal_name=self._legal_name(text),
+                dba_name=self._dba_name(text),
+                tax_classification=self._tax_classification(text),
+                address=self._address(text),
+                tin=self._tin(text),
+                certification=self._certification(text),
+            )
+
+            # Third pattern (extraction/flattened_form.py): label-anchored
+            # regex found nothing, but the text has the shape of a flattened
+            # AcroForm (values appended after the page footer, disconnected
+            # from labels). Pass page 1 (still open here) so tax
+            # classification can be resolved via checkbox-widget position.
+            if not fields.legal_name.value and looks_like_flattened_tail(text):
+                flattened = extract_from_flattened_tail(text, page=doc[0])
+                if flattened is not None:
+                    return flattened
+
+            return fields
         finally:
             doc.close()
-
-        fields = ExtractedFields(
-            legal_name=self._legal_name(text),
-            dba_name=self._dba_name(text),
-            tax_classification=self._tax_classification(text),
-            address=self._address(text),
-            tin=self._tin(text),
-            certification=self._certification(text),
-        )
-
-        # Third pattern (extraction/flattened_form.py): label-anchored regex
-        # found nothing, but the text has the shape of a flattened AcroForm
-        # (values appended after the page footer, disconnected from labels).
-        if not fields.legal_name.value and looks_like_flattened_tail(text):
-            flattened = extract_from_flattened_tail(text)
-            if flattened is not None:
-                return flattened
-
-        return fields
 
     def _legal_name(self, text: str) -> ExtractedValue:
         m = _LEGAL_NAME_RE.search(text)
