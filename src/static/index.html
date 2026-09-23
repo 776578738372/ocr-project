@@ -112,6 +112,14 @@
   .reasoning-item:last-child { border-bottom: none; }
   .reasoning-item .code { font-weight: 700; color: var(--accent); font-size: 12px; display: block; margin-bottom: 2px; }
 
+  .diff-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .diff-row:last-child { border-bottom: none; }
+  .diff-row .k { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+  .diff-old, .diff-new { font-size: 14px; padding: 8px 10px; border-radius: 8px; word-break: break-word; }
+  .diff-old { background: var(--red-soft); color: var(--red); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .diff-new { background: var(--green-soft); color: var(--green); font-weight: 600; }
+  .diff-arrow { color: var(--muted); font-size: 16px; }
+
   pre.raw {
     background: #1e1b2e; color: #e9e3f7; padding: 16px; border-radius: 12px;
     font-size: 12px; overflow-x: auto; max-height: 360px;
@@ -180,6 +188,11 @@
       <div class="field-grid" id="fieldGrid"></div>
     </div>
 
+    <div class="card" id="diffsCard" style="display:none">
+      <h2>What will update on the existing supplier</h2>
+      <div id="diffsList"></div>
+    </div>
+
     <div class="card">
       <h2>Decision reasoning</h2>
       <div id="reasoningList"></div>
@@ -237,6 +250,27 @@ function renderField(label, value, confidence) {
   return `<div class="field">
     <div class="k">${esc(label)}</div>
     <div class="v ${empty ? 'empty' : ''}">${empty ? 'not found' : esc(value)}${empty ? '' : confBadge}</div>
+  </div>`;
+}
+
+const FIELD_LABELS = {
+  legal_name: 'Legal name', dba_name: 'DBA name',
+  'tax_classification.value': 'Tax classification',
+  'address.street': 'Street', 'address.city': 'City', 'address.state': 'State', 'address.zip': 'ZIP',
+  'tin.type': 'TIN type', 'tin.value_masked': 'TIN (masked)',
+  'banking.routing_number_hash': 'Bank routing number', 'banking.account_number_last4': 'Bank account (last 4)',
+};
+
+function fieldLabel(path) {
+  return FIELD_LABELS[path] || path.split('.').map(p => p[0].toUpperCase() + p.slice(1)).join(' ');
+}
+
+function renderDiff(diff) {
+  return `<div class="diff-row">
+    <div class="k">${esc(fieldLabel(diff.field))}</div>
+    <div class="diff-old">${esc(diff.existing) || '<em>empty</em>'}</div>
+    <div class="diff-arrow">&rarr;</div>
+    <div class="diff-new">${esc(diff.incoming) || '<em>empty</em>'}</div>
   </div>`;
 }
 
@@ -313,6 +347,15 @@ function renderResult(data) {
     ].join('');
   } else {
     grid.innerHTML = '<div class="field"><div class="v empty">No extraction ran (document was rejected before extraction).</div></div>';
+  }
+
+  const diffsCard = document.getElementById('diffsCard');
+  const diffs = (data.match_evidence && data.match_evidence.field_diffs) || [];
+  if (diffs.length) {
+    diffsCard.style.display = 'block';
+    document.getElementById('diffsList').innerHTML = diffs.map(renderDiff).join('');
+  } else {
+    diffsCard.style.display = 'none';
   }
 
   document.getElementById('reasoningList').innerHTML = data.decision.decision_reasoning.map(r =>

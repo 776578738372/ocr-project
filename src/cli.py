@@ -20,7 +20,7 @@ import sys
 
 from schemas.schema import SecondaryPayload
 from matching.supplier_master import load_supplier_master
-from decision.pipeline import run_pipeline
+from decision.pipeline import AzureNotConfiguredError, run_pipeline
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,12 +41,16 @@ def main(argv: list[str] | None = None) -> int:
         with open(args.secondary_payload) as f:
             secondary_payload = SecondaryPayload.model_validate(json.load(f))
 
-    response = run_pipeline(
-        file_bytes=file_bytes,
-        tenant_id=args.tenant_id,
-        supplier_df=supplier_df,
-        secondary_payload=secondary_payload,
-    )
+    try:
+        response = run_pipeline(
+            file_bytes=file_bytes,
+            tenant_id=args.tenant_id,
+            supplier_df=supplier_df,
+            secondary_payload=secondary_payload,
+        )
+    except AzureNotConfiguredError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
     print(response.model_dump_json(indent=2))
     return 0

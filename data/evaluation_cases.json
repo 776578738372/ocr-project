@@ -1,7 +1,7 @@
 [
   {
     "name": "typed_pdf_exists_clean_match_1",
-    "description": "Real, genuine W-9 PDF (Apex Industrial Supplies LLC) -- 'flattened' fillable-PDF pattern (AcroForm widgets empty, values baked into the text stream after the page footer, disconnected from labels; also multi-page, so the footer marker repeats once per page). Tax classification (LLC + subclass C) is resolved via checkbox-widget position matching, not the flattened text alone -- see extraction/flattened_form.py. Matches an existing supplier exactly: no diffs.",
+    "description": "Real, genuine W-9 PDF (Apex Industrial Supplies LLC) -- 'flattened' fillable-PDF pattern (AcroForm widgets empty, values baked into the text stream after the page footer, disconnected from labels; also multi-page, so the footer marker repeats once per page). Tax classification (LLC) is resolved via checkbox-widget position matching, not the flattened text alone -- see extraction/flattened_form.py. Matches an existing supplier exactly: no diffs. Note: tax_classification.llc_subclass is deliberately NOT asserted here -- it differs by which extractor actually runs (see decision/pipeline.py's Azure-first branching): the free LayoutOCRExtractor path finds 'C' via a PyMuPDF text-stream quirk specific to this fixture, but visual inspection confirmed that value was never actually rendered on the page at a legible position, so Azure Document Intelligence (OCR on the rendered page) honestly returns null for it -- a real, documented finding, not a bug in either extractor (see docs/design_doc.md §3.3).",
     "file": "samples/w9_supplier_1_typed.pdf",
     "secondary_payload": null,
     "expected": {
@@ -12,7 +12,6 @@
         "legal_name": "Apex Industrial Supplies LLC",
         "dba_name": "Apex Industrial Supply",
         "tax_classification.value": "llc",
-        "tax_classification.llc_subclass": "C",
         "address.city": "Dallas",
         "address.state": "TX",
         "address.zip": "75212",
@@ -41,11 +40,32 @@
     }
   },
   {
+    "name": "typed_pdf_exists_address_changed",
+    "description": "Same flattened/multi-page PDF pattern as the two clean-match cases above, third real document (NorthStar Office Equipment LLC). Fills a gap the other two PDF cases didn't cover: matches an existing supplier by TIN, but the street address on file (data/supplier_master.csv) is deliberately stale ('4050 Market Center Drive' vs the document's real '4100 Market Center Drive') -> UPDATE_EXISTING with a field diff -- the PDF-path equivalent of the two image-based 'address changed' cases below, which until now were the only ones exercising this scenario.",
+    "file": "samples/w9_supplier_7_typed.pdf",
+    "secondary_payload": null,
+    "expected": {
+      "decision_action": "UPDATE_EXISTING",
+      "matched_supplier_id": "sup_20005",
+      "extraction_path": "layout_ocr",
+      "extracted_fields": {
+        "legal_name": "NorthStar Office Equipment LLC",
+        "dba_name": "NorthStar Office Equipment",
+        "tax_classification.value": "llc",
+        "address.street": "4100 Market Center Drive, Suite 220",
+        "address.city": "Chicago",
+        "address.state": "IL",
+        "address.zip": "60654",
+        "tin.type": "EIN"
+      }
+    }
+  },
+  {
     "name": "photo_supplier_does_not_exist_1",
-    "description": "Real photographed/scanned W-9 (Green Earth Services Partnership) via live vision-model extraction. Not on file for this tenant at all -> CREATE_NEW. SKIPPED if no ANTHROPIC_API_KEY/OPENAI_API_KEY is set (MockVLMExtractor would return every field null, which is a real and correct behavior on its own, but not what this case is testing).",
+    "description": "Real photographed/scanned W-9 (Green Earth Services Partnership) via live Azure Document Intelligence extraction. Not on file for this tenant at all -> CREATE_NEW. SKIPPED if Azure isn't configured (the pipeline raises AzureNotConfiguredError for any image-format document with no fallback -- see decision/pipeline.py).",
     "file": "samples/w9_supplier_3.jpeg",
     "secondary_payload": null,
-    "requires_vlm_key": true,
+    "requires_document_intelligence": true,
     "expected": {
       "decision_action": "CREATE_NEW",
       "matched_supplier_id": null,
@@ -54,10 +74,10 @@
   },
   {
     "name": "photo_supplier_does_not_exist_2",
-    "description": "Real photographed/scanned W-9 (BrightPath Consulting) via live vision-model extraction. Not on file -> CREATE_NEW. SKIPPED if no live VLM API key is set.",
+    "description": "Real photographed/scanned W-9 (BrightPath Consulting) via live Azure Document Intelligence extraction. Not on file -> CREATE_NEW. SKIPPED if Azure isn't configured.",
     "file": "samples/w9_supplier_4.jpeg",
     "secondary_payload": null,
-    "requires_vlm_key": true,
+    "requires_document_intelligence": true,
     "expected": {
       "decision_action": "CREATE_NEW",
       "matched_supplier_id": null,
@@ -66,10 +86,10 @@
   },
   {
     "name": "handwritten_supplier_exists_info_changed_1",
-    "description": "Real handwritten W-9 (Sunrise Medical Devices LLC) via live vision-model extraction. Matches an existing supplier by TIN, but the street address on file is stale -> UPDATE_EXISTING with a field diff. SKIPPED if no live VLM API key is set.",
+    "description": "Real handwritten W-9 (Sunrise Medical Devices LLC) via live Azure Document Intelligence extraction. Matches an existing supplier by TIN, but the street address on file is stale -> UPDATE_EXISTING with a field diff. SKIPPED if Azure isn't configured.",
     "file": "samples/w9_supplier_5_handwritten.png",
     "secondary_payload": null,
-    "requires_vlm_key": true,
+    "requires_document_intelligence": true,
     "expected": {
       "decision_action": "UPDATE_EXISTING",
       "matched_supplier_id": "sup_20003",
@@ -78,14 +98,17 @@
   },
   {
     "name": "handwritten_supplier_exists_info_changed_2",
-    "description": "Real handwritten W-9 (Metro Construction Supply Inc.) via live vision-model extraction. Matches an existing supplier by TIN, but the street address on file is stale -> UPDATE_EXISTING with a field diff. SKIPPED if no live VLM API key is set.",
+    "description": "Real handwritten W-9 (Metro Construction Supply Inc.) via live Azure Document Intelligence extraction. Regression case: the earlier vision-LLM provider (GPT-4o) read this document's checked 'Partnership' box as 'C Corporation' with self-reported confidence 1.0 -- caught only because it produced a field_diff against this supplier's existing record, which wouldn't have happened for a brand-new supplier (see docs/design_doc.md). The tax_classification assertion below is the regression test for the fix: Document Intelligence's selection-mark detection, not a language model's guess. Also matches an existing supplier by TIN with a stale street address on file -> UPDATE_EXISTING with a field diff. SKIPPED if Azure isn't configured.",
     "file": "samples/w9_supplier_6_handwritten.png",
     "secondary_payload": null,
-    "requires_vlm_key": true,
+    "requires_document_intelligence": true,
     "expected": {
       "decision_action": "UPDATE_EXISTING",
       "matched_supplier_id": "sup_20004",
-      "extraction_path": "vlm_extraction"
+      "extraction_path": "vlm_extraction",
+      "extracted_fields": {
+        "tax_classification.value": "partnership"
+      }
     }
   }
 ]

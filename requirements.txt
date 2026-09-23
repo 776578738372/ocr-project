@@ -6,10 +6,13 @@ pandas==2.2.3
 pillow==10.4.0
 pytest==8.3.3
 
-# Optional: only needed if you activate a real VLM extractor with a live API key.
-# The pipeline runs end-to-end without either installed (MockVLMExtractor is the default).
-anthropic==0.39.0
-openai==3.17.0
+# Required to process scans/photos/images (the [2B] VLM_EXTRACTION FSM
+# state): set AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and
+# AZURE_DOCUMENT_INTELLIGENCE_KEY -- see src/providers/document_intelligence_provider.py.
+# A digital PDF with a real embedded text layer (extraction/layout_ocr.py)
+# still works with none of this configured; only image-format documents
+# require it, and raise a clear error (AzureNotConfiguredError) if it's missing.
+azure-ai-documentintelligence==1.0.2
 
 # Optional: only needed for the HTTP interface (src/main.py). The CLI above
 # is the primary entry point and needs none of this -- see README.

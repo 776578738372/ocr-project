@@ -9,6 +9,7 @@ response.
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
 
@@ -26,15 +27,32 @@ from schemas.schema import (
     W9OnboardingResponse,
 )
 from extraction.layout_ocr import LayoutOCRExtractor
-from providers.vlm_provider import MockVLMExtractor, get_vlm_extractor
 from extraction.classifier import InvalidFileError, classify
 from matching.risk_signals import check_shared_bank_account
 from matching.scoring import match_supplier
 from validation.rules import has_blocking_flag, validate
 
 _COST_LAYOUT_OCR = 0.0015  # compute-only estimate, no external API call
-_COST_VLM_LIVE = 0.02  # representative vision-model call cost
-_COST_VLM_MOCK = 0.0  # no call actually made
+_COST_AZURE_DI = 0.0015  # representative Document Intelligence prebuilt-layout call (~$1.50/1000 pages)
+
+
+class AzureNotConfiguredError(RuntimeError):
+    """Raised when a document needs [2B] VLM_EXTRACTION (a scan/photo, or a
+    PDF with no embedded text layer) but AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+    / AZURE_DOCUMENT_INTELLIGENCE_KEY aren't set. There is deliberately no
+    other extractor for this state to fall back to -- see
+    providers/document_intelligence_provider.py's docstring for why the
+    vision-LLM providers this project used before were retired instead of
+    kept as a fallback. This is a deployment/configuration problem, not a
+    per-document outcome, so callers (cli.py, main.py) surface it as a clear
+    error rather than routing it through the FSM's decision vocabulary."""
+
+
+def _azure_di_configured() -> bool:
+    return bool(
+        os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+        and os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+    )
 
 
 def run_pipeline(
@@ -80,17 +98,29 @@ def run_pipeline(
 
     if classification.extraction_path == ExtractionPath.LAYOUT_OCR:
         state_trace.append("OCR_EXTRACTION")
-        extractor = LayoutOCRExtractor()
-        engine_versions["extractor"] = "layout-ocr-1.0"
-        extraction_cost = _COST_LAYOUT_OCR
+        if _azure_di_configured():
+            from providers.document_intelligence_provider import AzureDocumentIntelligenceExtractor
+
+            extractor = AzureDocumentIntelligenceExtractor(source=ExtractionPath.LAYOUT_OCR)
+            engine_versions["extractor"] = "azure-document-intelligence-prebuilt-layout"
+            extraction_cost = _COST_AZURE_DI
+        else:
+            extractor = LayoutOCRExtractor()
+            engine_versions["extractor"] = "layout-ocr-1.0"
+            extraction_cost = _COST_LAYOUT_OCR
     else:
         state_trace.append("VLM_EXTRACTION")
-        extractor = get_vlm_extractor()
-        is_mock = isinstance(extractor, MockVLMExtractor)
-        engine_versions["extractor"] = (
-            "vlm-mock-1.0" if is_mock else f"vlm-{type(extractor).__name__}-{extractor._model}"
-        )
-        extraction_cost = _COST_VLM_MOCK if is_mock else _COST_VLM_LIVE
+        if not _azure_di_configured():
+            raise AzureNotConfiguredError(
+                "This document has no usable embedded text layer (a scan, photo, "
+                "or image), which requires Azure Document Intelligence. Set "
+                "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and AZURE_DOCUMENT_INTELLIGENCE_KEY."
+            )
+        from providers.document_intelligence_provider import AzureDocumentIntelligenceExtractor
+
+        extractor = AzureDocumentIntelligenceExtractor(source=ExtractionPath.VLM_EXTRACTION)
+        engine_versions["extractor"] = "azure-document-intelligence-prebuilt-layout"
+        extraction_cost = _COST_AZURE_DI
 
     fields = extractor.extract(file_bytes)
 

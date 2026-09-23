@@ -29,9 +29,10 @@ are flat top-level packages under src/, not nested under a "src" package):
     uvicorn main:app --app-dir src --reload --port 8000
 
 A .env file in the repo root (if present) is loaded automatically below, so
-ANTHROPIC_API_KEY / OPENAI_API_KEY set there activate the real VLM path
-without needing `export` in whatever shell happens to start uvicorn --
-this bit us once already (server started in a terminal that never ran
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT / AZURE_DOCUMENT_INTELLIGENCE_KEY set
+there activate real scan/photo extraction without needing `export` in
+whatever shell happens to start uvicorn -- this bit us once already with an
+earlier vision-LLM provider (server started in a terminal that never ran
 `export`, silently fell back to the mock, every image field showed "not
 found" in the demo UI even though the same key worked fine from a shell
 that had exported it).
@@ -54,7 +55,7 @@ from fastapi.responses import HTMLResponse
 
 load_dotenv()
 
-from decision.pipeline import run_pipeline
+from decision.pipeline import AzureNotConfiguredError, run_pipeline
 from matching.supplier_master import load_supplier_master
 from schemas.schema import SecondaryPayload, W9OnboardingResponse
 
@@ -116,9 +117,12 @@ async def onboard_w9(
     # normal, documented contract outcome (decision.action == "REJECTED").
     # HTTP error codes here are reserved for things outside the contract
     # (a malformed request -> 400/422, or a missing supplier master -> 500).
-    return run_pipeline(
-        file_bytes=file_bytes,
-        tenant_id=tenant_id,
-        supplier_df=_get_supplier_master(),
-        secondary_payload=payload,
-    )
+    try:
+        return run_pipeline(
+            file_bytes=file_bytes,
+            tenant_id=tenant_id,
+            supplier_df=_get_supplier_master(),
+            secondary_payload=payload,
+        )
+    except AzureNotConfiguredError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

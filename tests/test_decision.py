@@ -1,18 +1,19 @@
 """STATUS: REAL. End-to-end scenario coverage for the decision engine.
 
-Real documents, not synthetic fixtures: 2 genuine W-9 PDFs (a "flattened"
+Real documents, not synthetic fixtures: 3 genuine W-9 PDFs (a "flattened"
 fillable-PDF pattern -- see extraction/flattened_form.py) plus 4 real
-photographed/handwritten W-9s requiring live vision-model extraction,
-against data/evaluation_cases.json. Three scenarios, matching how a real
-supplier master behaves: documents that match an existing supplier cleanly,
-documents for a supplier not on file at all, and documents for an existing
-supplier whose address changed since the record was created.
+photographed/handwritten W-9s requiring live Azure Document Intelligence
+extraction, against data/evaluation_cases.json. Three scenarios, matching
+how a real supplier master behaves: documents that match an existing
+supplier cleanly, documents for a supplier not on file at all, and
+documents for an existing supplier whose address changed since the record
+was created (one PDF case and two image cases cover this last scenario).
 
-The 4 vision-model cases are marked `"requires_vlm_key": true` in the
-manifest and SKIP (not fail) when neither ANTHROPIC_API_KEY nor
-OPENAI_API_KEY is set -- consistent with the rest of this project never
-requiring a paid API key just to run the test suite. Set one of those env
-vars to actually exercise live extraction.
+The 4 scan/photo cases are marked `"requires_document_intelligence": true` in
+the manifest and SKIP (not fail) when AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT /
+AZURE_DOCUMENT_INTELLIGENCE_KEY aren't set -- consistent with the rest of
+this project never requiring a paid API key just to run the test suite. Set
+both env vars to actually exercise live extraction.
 
 This is the answer to the case study's "some form of evaluation, even a
 lightweight one" ask: run `pytest tests/test_decision.py -v` for the
@@ -35,7 +36,10 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CASES_PATH = os.path.join(REPO_ROOT, "data", "evaluation_cases.json")
 SUPPLIER_MASTER_PATH = os.path.join(REPO_ROOT, "data", "supplier_master.csv")
 
-HAS_VLM_KEY = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY"))
+HAS_AZURE_DI = bool(
+    os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+    and os.environ.get("AZURE_DOCUMENT_INTELLIGENCE_KEY")
+)
 
 with open(CASES_PATH) as _f:
     CASES = json.load(_f)
@@ -71,8 +75,8 @@ def _run_case(case: dict):
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
 def test_scenario_decision(case):
-    if case.get("requires_vlm_key") and not HAS_VLM_KEY:
-        pytest.skip("no ANTHROPIC_API_KEY/OPENAI_API_KEY set -- this case needs live vision-model extraction")
+    if case.get("requires_document_intelligence") and not HAS_AZURE_DI:
+        pytest.skip("no AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT/KEY set -- this case needs live extraction")
 
     response = _run_case(case)
     expected = case["expected"]
@@ -119,7 +123,7 @@ def test_field_level_accuracy_report(capsys):
     """
     total, passed = 0, 0
     for case in CASES:
-        if case.get("requires_vlm_key") and not HAS_VLM_KEY:
+        if case.get("requires_document_intelligence") and not HAS_AZURE_DI:
             continue
         response = _run_case(case)
         if response.extracted_fields is None:
