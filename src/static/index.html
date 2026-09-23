@@ -108,9 +108,13 @@
   .flag.INFO { background: #f1f5f9; color: #475569; }
   .flag .code { font-weight: 700; display: block; font-size: 12px; }
 
-  .reasoning-item { font-size: 13px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .reasoning-item { font-size: 13px; padding: 8px 10px; border-bottom: 1px dashed var(--border); }
   .reasoning-item:last-child { border-bottom: none; }
   .reasoning-item .code { font-weight: 700; color: var(--accent); font-size: 12px; display: block; margin-bottom: 2px; }
+  .reasoning-item.warn { background: var(--amber-soft); border-radius: 10px; border-bottom: none; margin-bottom: 6px; }
+  .reasoning-item.warn .code { color: var(--amber); }
+  .reasoning-item.err { background: var(--red-soft); border-radius: 10px; border-bottom: none; margin-bottom: 6px; }
+  .reasoning-item.err .code { color: var(--red); }
 
   .diff-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .diff-row:last-child { border-bottom: none; }
@@ -358,9 +362,10 @@ function renderResult(data) {
     diffsCard.style.display = 'none';
   }
 
-  document.getElementById('reasoningList').innerHTML = data.decision.decision_reasoning.map(r =>
-    `<div class="reasoning-item"><span class="code">${esc(r.code)}</span>${esc(r.message)}</div>`
-  ).join('') || '<div class="reasoning-item">No reasoning codes.</div>';
+  document.getElementById('reasoningList').innerHTML = data.decision.decision_reasoning.map(r => {
+    const cls = r.code.startsWith('ERR_') ? 'err' : r.code.startsWith('WARN_') ? 'warn' : '';
+    return `<div class="reasoning-item ${cls}"><span class="code">${esc(r.code)}</span>${esc(r.message)}</div>`;
+  }).join('') || '<div class="reasoning-item">No reasoning codes.</div>';
 
   const flagsCard = document.getElementById('flagsCard');
   const flags = data.validation_flags || [];
